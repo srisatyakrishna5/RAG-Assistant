@@ -47,4 +47,9 @@ LANGUAGE_CONFIG = {
         "voice": "fr-FR-DeniseNeural",
         "speech_locale": "fr-FR",
     },
+    "Telugu": {
+        "translator_code": "te",
+        "voice": "te-IN-ShrutiNeural",
+        "speech_locale": "te-IN",
+    }
 }
