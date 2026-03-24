@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+*.whl
+
+# Virtual environment
+.venv/
+venv/
+env/
+.env/
+
+# Environment variables — NEVER commit credentials
+.env
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Test / diagnostic artefacts (generated during development)
+test_*.wav
+test_*.mp3
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDEs
+.vscode/settings.json
+.idea/
+*.suo
+*.user
+
+# Jupyter
+.ipynb_checkpoints/
