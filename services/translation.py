@@ -1,15 +1,22 @@
-import requests
+from azure.ai.translation.text import TextTranslationClient
+from azure.core.credentials import AzureKeyCredential
+from azure.core.exceptions import HttpResponseError
 
 from config import (
     AZURE_TRANSLATOR_KEY,
     AZURE_TRANSLATOR_REGION,
-    TRANSLATOR_ENDPOINT,
     LANGUAGE_CONFIG,
 )
 
 
+def _get_client() -> TextTranslationClient:
+    """Build a TextTranslationClient using the global endpoint."""
+    credential = AzureKeyCredential(AZURE_TRANSLATOR_KEY)
+    return TextTranslationClient(credential=credential, region=AZURE_TRANSLATOR_REGION)
+
+
 def translate_text(text: str, language: str) -> str:
-    """Translate text to the target language using Azure Translator.
+    """Translate text to the target language using the Azure Translator SDK.
 
     Returns the original text unchanged if:
     - the target language is English, or
@@ -19,19 +26,6 @@ def translate_text(text: str, language: str) -> str:
     if target_code == "en" or not AZURE_TRANSLATOR_KEY:
         return text
 
-    headers = {
-        "Ocp-Apim-Subscription-Key": AZURE_TRANSLATOR_KEY,
-        "Ocp-Apim-Subscription-Region": AZURE_TRANSLATOR_REGION,
-        "Content-Type": "application/json",
-    }
-    params = {"api-version": "3.0", "from": "en", "to": target_code}
-
-    resp = requests.post(
-        TRANSLATOR_ENDPOINT,
-        params=params,
-        headers=headers,
-        json=[{"text": text}],
-        timeout=30,
-    )
-    resp.raise_for_status()
-    return resp.json()[0]["translations"][0]["text"]
+    client = _get_client()
+    response = client.translate(body=[text], to_language=[target_code], from_language="en")
+    return response[0].translations[0].text

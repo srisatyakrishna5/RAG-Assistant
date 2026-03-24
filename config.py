@@ -28,7 +28,6 @@ AZURE_SPEECH_REGION = os.getenv("AZURE_SPEECH_REGION", "")
 # --------------- Azure Translator ---------------
 AZURE_TRANSLATOR_KEY = os.getenv("AZURE_TRANSLATOR_KEY", "")
 AZURE_TRANSLATOR_REGION = os.getenv("AZURE_TRANSLATOR_REGION", "")
-TRANSLATOR_ENDPOINT = "https://api.cognitive.microsofttranslator.com/translate"
 
 # --------------- Language Configuration ---------------
 # Maps display name -> ISO 639-1 translator code, Azure Neural voice, speech locale.
