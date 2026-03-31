@@ -642,3 +642,188 @@ Use this checklist to make sure you have completed every step:
 ---
 
 *End of Lab Manual*
+
+
+### Exercise 5: Use Voice Input (Optional, requires Speech credentials)
+
+1. In the Chat tab, you will see a **"🎤 Voice Input"** section with a microphone widget.
+2. Click the microphone button and speak your question clearly at a normal pace.
+3. Click the stop button when you are done speaking.
+4. The app will display: *"🗣️ Heard: [your transcribed question]"*
+5. The answer will be generated and spoken aloud automatically.
+
+---
+
+## Part 10 — Stopping and Restarting the App
+
+### Stopping the App
+
+In the terminal where the app is running, press **Ctrl + C**.  The app will stop.
+
+### Restarting the App
+
+1. Open a terminal in the project folder.
+2. Activate the virtual environment (Step 6.2).
+3. Run `streamlit run app.py`.
+
+> **Note:** Your uploaded documents remain searchable every time you restart the app because they are stored in Azure AI Search (not locally).  However, the "Indexed Documents" list in the sidebar only shows documents uploaded in the current session.
+
+---
+
+## Part 11 — Common Problems and Solutions
+
+### Problem: "⚠️ Missing Azure configuration" appears instead of the app
+
+**Cause:** Your `.env` file is missing or has incorrect values.
+
+**Solution:**
+1. Make sure the `.env` file is in the same folder as `app.py`.
+2. Open the `.env` file and verify there are no `<placeholder>` values remaining.
+3. Check that you have not accidentally named the file `.env.txt` (Windows sometimes adds `.txt` without showing it).
+   - In File Explorer, click View → tick "File name extensions" to see the full filename.
+4. Restart the app after fixing the file.
+
+---
+
+### Problem: "Document Intelligence error: 401 Unauthorized"
+
+**Cause:** The Document Intelligence key or endpoint is wrong.
+
+**Solution:**
+1. Go to the Azure Portal → your Document Intelligence resource → Keys and Endpoint.
+2. Copy KEY 1 again (it is easy to accidentally copy the endpoint instead of the key).
+3. Update the value in your `.env` file.
+4. Restart the app.
+
+---
+
+### Problem: Installation of `azure-cognitiveservices-speech` fails
+
+**Cause:** The Speech SDK requires C++ runtime components that may not be present on all systems.
+
+**Solution:** This is an optional package.  The app works without it.
+1. If you do not need voice features, delete the `azure-cognitiveservices-speech` line from `requirements.txt` and re-run `pip install -r requirements.txt`.
+2. Or simply ignore the error — the speech package is the last one and all other packages will install fine.
+
+---
+
+### Problem: "pip is not recognised" error on Windows
+
+**Cause:** Python was not added to PATH during installation.
+
+**Solution:**
+1. Uninstall Python from Control Panel.
+2. Re-run the Python installer.
+3. On the first screen, **make sure you check "Add Python to PATH"** before clicking Install.
+
+---
+
+### Problem: The app starts but answers are very slow
+
+**Cause:** Expected behaviour.  GPT-4.1 typically takes 5–15 seconds to generate an answer.
+
+**Solution:** No action needed.  The loading spinner tells you the app is working.
+
+---
+
+### Problem: "Could not understand the audio"
+
+**Cause:** The audio was too quiet, too noisy, or the recording was too short.
+
+**Solution:**
+1. Make sure you are in a quiet environment.
+2. Speak louder and closer to the microphone.
+3. Speak a complete sentence, not just one word.
+4. Ensure your microphone is not muted.
+
+---
+
+### Problem: Answers appear in English instead of the selected language
+
+**Cause:** `AZURE_TRANSLATOR_KEY` is not set in `.env`.
+
+**Solution:**
+1. Complete Step 3.5 to create an Azure Translator resource.
+2. Add the key and region to your `.env` file.
+3. Restart the app.
+
+---
+
+## Part 12 — Cleaning Up Azure Resources
+
+When you are done experimenting and want to stop any potential charges:
+
+1. Go to the Azure Portal → **"Resource groups"**.
+2. Click on `document-advisor-rg`.
+3. Click **"Delete resource group"** at the top.
+4. Type the resource group name to confirm, then click **"Delete"**.
+
+This deletes ALL services created in this lab in one step.
+
+> **Important:** This also deletes all the documents you indexed.  Re-uploading them after recreation will be necessary.
+
+---
+
+## Appendix A — Complete .env Template
+
+```dotenv
+# ─────────────────────────────────────────────────────────────────────────────
+# RAG Document Assistant — Environment Configuration
+# Copy this file to .env in the project root and fill in your Azure values.
+# NEVER commit .env to version control (Git).
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Azure Document Intelligence ───────────────────────────────────────────────
+AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT=https://YOUR_RESOURCE.cognitiveservices.azure.com/
+AZURE_DOCUMENT_INTELLIGENCE_KEY=YOUR_KEY_HERE
+
+# ── Azure AI Search ───────────────────────────────────────────────────────────
+AZURE_SEARCH_ENDPOINT=https://YOUR_SEARCH_SERVICE.search.windows.net
+AZURE_SEARCH_KEY=YOUR_ADMIN_KEY_HERE
+AZURE_SEARCH_INDEX_NAME=rag-documents
+
+# ── Azure OpenAI ─────────────────────────────────────────────────────────────
+AZURE_OPENAI_ENDPOINT=https://YOUR_OPENAI_RESOURCE.openai.azure.com/
+AZURE_OPENAI_KEY=YOUR_KEY_HERE
+AZURE_OPENAI_DEPLOYMENT=gpt-4.1
+AZURE_OPENAI_EMBEDDING_DEPLOYMENT=text-embedding-ada-002
+AZURE_OPENAI_API_VERSION=2025-03-01-preview
+
+# ── Azure Speech (optional — delete or comment out if not using) ──────────────
+AZURE_SPEECH_KEY=YOUR_SPEECH_KEY_HERE
+AZURE_SPEECH_REGION=eastus
+
+# ── Azure Translator (optional — delete or comment out if not using) ──────────
+AZURE_TRANSLATOR_KEY=YOUR_TRANSLATOR_KEY_HERE
+AZURE_TRANSLATOR_REGION=global
+```
+
+---
+
+## Appendix B — Quick-Start Checklist
+
+Use this checklist to make sure you have completed every step:
+
+- [ ] Azure account created and logged into the Portal
+- [ ] Resource group `document-advisor-rg` created
+- [ ] Azure Document Intelligence resource created — endpoint and key saved
+- [ ] Azure AI Search resource created — URL and admin key saved
+- [ ] Azure OpenAI resource created — endpoint and key saved
+- [ ] GPT-4.1 model deployment created in Azure OpenAI Studio
+- [ ] text-embedding-ada-002 model deployment created in Azure OpenAI Studio
+- [ ] *(Optional)* Azure Speech resource created — key and region saved
+- [ ] *(Optional)* Azure Translator resource created — key and region saved
+- [ ] Python 3.10+ installed with "Add to PATH" checked
+- [ ] Project folder downloaded/cloned
+- [ ] Virtual environment created with `python -m venv .venv`
+- [ ] Virtual environment activated (`.venv\Scripts\activate` or `source .venv/bin/activate`)
+- [ ] Packages installed with `pip install -r requirements.txt`
+- [ ] `.env` file created in the project root with all credentials filled in
+- [ ] App launched with `streamlit run app.py`
+- [ ] Browser opened to http://localhost:8501
+- [ ] Test PDF uploaded successfully
+- [ ] First question answered with cited sources
+
+---
+
+*End of Lab Manual*
