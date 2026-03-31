@@ -19,8 +19,8 @@ from config import (
 )
 from services.chunker import chunk_pages
 from services.document_intelligence import analyze_pdf
-from services.llm import generate_answer, summarize_for_speech
-from services.search import hybrid_search
+from services.llm import generate_answer, generate_document_summary, summarize_for_speech
+from services.search import hybrid_search, get_indexed_document_names, fetch_chunks_by_document
 from services.search_index import ensure_search_index, upload_chunks_to_index
 from services.speech import SPEECH_SDK_AVAILABLE, synthesize_speech, transcribe_audio
 
@@ -39,6 +39,8 @@ def main():
         st.session_state.last_audio_hash = None
     if "output_language" not in st.session_state:
         st.session_state.output_language = "English"
+    if "document_summary" not in st.session_state:
+        st.session_state.document_summary = None
 
     speech_enabled = SPEECH_SDK_AVAILABLE and bool(AZURE_SPEECH_KEY and AZURE_SPEECH_REGION)
 
@@ -84,15 +86,45 @@ def main():
             "Upload new documents using the **Document Manager** on the left."
         )
 
-    _render_chat_history()
+    tab_chat, tab_summary = st.tabs(["💬 Chat", "📝 Summary"])
 
-    active_query = _collect_voice_query(speech_enabled)
-    text_input = st.chat_input("Ask a question about your documents…")
-    if text_input:
-        active_query = text_input
+    with tab_chat:
+        _render_chat_history()
 
-    if active_query:
-        _process_query(active_query, speech_enabled)
+        active_query = _collect_voice_query(speech_enabled)
+        text_input = st.chat_input("Ask a question about your documents…")
+        if text_input:
+            active_query = text_input
+
+        if active_query:
+            _process_query(active_query, speech_enabled)
+
+    with tab_summary:
+        try:
+            doc_names = get_indexed_document_names()
+        except Exception:
+            doc_names = []
+
+        if doc_names:
+            st.selectbox(
+                "Select a document to summarize",
+                options=doc_names,
+                key="summary_doc_select",
+            )
+            if st.button("📝 Generate Summary", type="primary", use_container_width=True):
+                _generate_summary()
+
+            if st.session_state.document_summary:
+                st.divider()
+                st.markdown(st.session_state.document_summary)
+                if st.button("🗑️ Clear summary", key="clear_summary"):
+                    st.session_state.document_summary = None
+                    st.rerun()
+        else:
+            st.info(
+                "No documents found in the index. Upload and index a document first.",
+                icon="ℹ️",
+            )
 
 
 # ================================================================
@@ -161,6 +193,7 @@ def _render_indexed_docs() -> None:
             )
         if st.button("🗑️ Clear chat history", use_container_width=True):
             st.session_state.messages = []
+            st.session_state.document_summary = None
             st.rerun()
     else:
         st.info(
@@ -168,6 +201,26 @@ def _render_indexed_docs() -> None:
             "You can still query documents already in the index.",
             icon="ℹ️",
         )
+
+
+def _generate_summary() -> None:
+    """Fetch chunks for the selected document and generate a summary."""
+    document_name = st.session_state.get("summary_doc_select")
+    if not document_name:
+        st.warning("Please select a document first.")
+        return
+    language = st.session_state.get("output_language", "English")
+    with st.spinner("📝 Fetching document chunks and generating summary…"):
+        try:
+            chunks = fetch_chunks_by_document(document_name)
+            if not chunks:
+                st.warning("No chunks found for this document.")
+                return
+            summary = generate_document_summary(chunks, language=language)
+            st.session_state.document_summary = summary
+            st.rerun()
+        except Exception as e:
+            st.error(f"Summary generation error: {e}")
 
 
 def _render_upload_section() -> None:
@@ -205,7 +258,7 @@ def _render_upload_section() -> None:
             st.divider()
 
     progress.progress(40, text="✂️ Splitting into chunks…")
-    chunks = chunk_pages(pages)
+    chunks = chunk_pages(pages, document_name=uploaded_file.name)
     status.success(f"Created **{len(chunks)}** chunks")
 
     progress.progress(55, text="🏗️ Ensuring search index exists…")

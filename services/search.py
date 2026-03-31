@@ -41,3 +41,49 @@ def hybrid_search(query: str, top_k: int = 5) -> list[dict]:
         }
         for r in results
     ]
+
+
+def get_indexed_document_names() -> list[str]:
+    """Return a sorted list of distinct document names in the search index."""
+    search_client = SearchClient(
+        endpoint=SEARCH_ENDPOINT,
+        index_name=SEARCH_INDEX_NAME,
+        credential=AzureKeyCredential(SEARCH_KEY),
+    )
+
+    results = search_client.search(
+        search_text="*",
+        select=["document_name"],
+        top=1000,
+    )
+
+    names = {r["document_name"] for r in results if r.get("document_name")}
+    return sorted(names)
+
+
+def fetch_chunks_by_document(document_name: str) -> list[dict]:
+    """Retrieve all chunks for a specific document, ordered by page and offset."""
+    search_client = SearchClient(
+        endpoint=SEARCH_ENDPOINT,
+        index_name=SEARCH_INDEX_NAME,
+        credential=AzureKeyCredential(SEARCH_KEY),
+    )
+
+    results = search_client.search(
+        search_text="*",
+        filter=f"document_name eq '{document_name}'",
+        select=["id", "content", "page_number", "offset"],
+        top=1000,
+    )
+
+    chunks = [
+        {
+            "id": r["id"],
+            "content": r["content"],
+            "page_number": r["page_number"],
+            "offset": r.get("offset", 0),
+        }
+        for r in results
+    ]
+    chunks.sort(key=lambda c: (c["page_number"], c["offset"]))
+    return chunks

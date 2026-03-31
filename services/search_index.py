@@ -25,6 +25,7 @@ def ensure_search_index() -> None:
 
     fields = [
         SimpleField(name="id", type=SearchFieldDataType.String, key=True, filterable=True),
+        SimpleField(name="document_name", type=SearchFieldDataType.String, filterable=True),
         SearchableField(name="content", type=SearchFieldDataType.String),
         SimpleField(name="page_number", type=SearchFieldDataType.Int32, filterable=True),
         SimpleField(name="offset", type=SearchFieldDataType.Int32, filterable=True),
@@ -75,6 +76,7 @@ def upload_chunks_to_index(chunks: list[dict]) -> None:
     documents = [
         {
             "id": chunk["id"],
+            "document_name": chunk.get("document_name", ""),
             "content": chunk["content"],
             "page_number": chunk["page_number"],
             "offset": chunk["offset"],

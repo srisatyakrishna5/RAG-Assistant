@@ -93,3 +93,46 @@ def summarize_for_speech(answer: str, language: str = "English") -> str:
 
     english_summary = response.choices[0].message.content.strip()
     return translate_text(english_summary, language)
+
+
+def generate_document_summary(
+    chunks: list[dict], language: str = "English"
+) -> str:
+    """Generate a comprehensive summary of an entire document from all its chunks.
+
+    Chunks are concatenated in order and passed to the LLM for summarization,
+    then translated to the target language.
+    """
+    client = _get_client()
+
+    context_parts = [
+        f"[Page {chunk['page_number']}]\n{chunk['content']}"
+        for chunk in chunks
+    ]
+    context_text = "\n\n---\n\n".join(context_parts)
+
+    system_prompt = (
+        "You are a helpful assistant that produces comprehensive document summaries. "
+        "You will receive the full text of a document split into page-level chunks. "
+        "Write a well-structured summary that captures the key topics, findings, "
+        "arguments, and conclusions of the document. Use bullet points where appropriate. "
+        "Reference page numbers when citing specific details. "
+        f"Always respond in {language}."
+    )
+    user_prompt = (
+        f"Document content:\n\n{context_text}\n\n---\n\n"
+        "Provide a comprehensive summary of this entire document."
+    )
+
+    response = client.chat.completions.create(
+        model=AZURE_OPENAI_DEPLOYMENT,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        temperature=0.3,
+        max_tokens=3000,
+    )
+
+    english_summary = response.choices[0].message.content
+    return translate_text(english_summary, language)
