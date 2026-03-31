@@ -1,46 +1,3 @@
-"""
-app.py — RAG Document Assistant — Streamlit application entry point.
-
-This is the top-level module that wires together all backend services into a
-browser-based conversational UI.  It is launched with::
-
-    streamlit run app.py
-
-Application layout
-------------------
-The UI is divided into two areas:
-
-**Sidebar (left panel)**
-    - Configuration health check (missing Azure credentials are displayed here
-      and the app is halted).
-    - Service info expander (shows index name, model names, and speech region).
-    - Speech enable/disable toggle.
-    - Output language selector (English / Hindi / French / Telugu).
-    - List of documents indexed in the current session.
-    - PDF upload & indexing widget.
-
-**Main area (center)**
-    - Chat tab: multi-turn conversation with the indexed documents, supporting
-      both text and voice input.  Each assistant reply shows cited sources and
-      optional audio playback.
-    - Summary tab: one-click whole-document summary for any indexed document,
-      with optional language translation.
-
-RAG pipeline (triggered on document upload)
--------------------------------------------
-1. ``analyze_pdf``       — Extract text per page via Document Intelligence.
-2. ``chunk_pages``       — Slide a 1 000-char window with 200-char overlap.
-3. ``ensure_search_index`` — Create the AI Search index if absent.
-4. ``upload_chunks_to_index`` — Embed (ada-002) + upload to AI Search.
-
-RAG pipeline (triggered on user question)
------------------------------------------
-1. ``hybrid_search``     — BM25 + HNSW vector retrieval (top 5 chunks).
-2. ``generate_answer``   — GPT-4.1 synthesis with source citations.
-3. ``translate_text``    — Optional Azure Translator post-processing.
-4. ``summarize_for_speech`` + ``synthesize_speech`` — Optional TTS playback.
-"""
-
 import hashlib
 
 import streamlit as st
@@ -69,35 +26,7 @@ from services.speech import SPEECH_SDK_AVAILABLE, synthesize_speech, transcribe_
 
 
 def main():
-    """Application entry point — configure the page and render the full UI.
-
-    Called directly by Streamlit when ``streamlit run app.py`` is executed.
-    Responsible for:
-
-    1. **Page configuration** — Sets the browser tab title, favicon, and wide
-       layout via ``st.set_page_config``.
-    2. **Session state initialisation** — Ensures all required session-state
-       keys are present before any widget attempts to read them.  Streamlit's
-       session state persists for the lifetime of the browser tab:
-
-       - ``messages``        — Chat history list (role + content + sources + audio).
-       - ``indexed_docs``    — Metadata for documents indexed this session.
-       - ``voice_query``     — Transcribed speech query awaiting processing.
-       - ``last_audio_hash`` — MD5 of the last audio recording; prevents the
-         same recording from being transcribed twice on Streamlit reruns.
-       - ``output_language`` — Currently selected output language.
-       - ``document_summary`` — Cached summary for the selected document.
-
-    3. **Speech availability detection** — Determines whether voice features
-       should be shown based on SDK availability and credential presence.
-
-    4. **Sidebar rendering** — Delegates to helper functions for each sidebar
-       section (config check, service info, speech toggle, language selector,
-       indexed doc list, upload widget).
-
-    5. **Main content rendering** — Renders the chat tab (history + input +
-       RAG pipeline) and the summary tab.
-    """
+    st.set_page_config(page_title="RAG Document Assistant", page_icon="📄", layout="wide")
 
     # --------------- Session state ---------------
     if "messages" not in st.session_state:
@@ -203,27 +132,7 @@ def main():
 # ================================================================
 
 def _render_config_check() -> None:
-    """Validate that all mandatory Azure credentials are present; halt the app if not.
-
-    Checks six environment variables that are unconditionally required for the
-    core RAG pipeline (Document Intelligence, AI Search, and Azure OpenAI).
-    If any are missing, displays a styled error block in the sidebar listing
-    the names of the missing variables, then calls ``st.stop()`` to prevent
-    the rest of the application from rendering.
-
-    This is the first thing rendered in the sidebar so users see a clear,
-    actionable error message before any other UI element appears.  Once all
-    variables are set in ``.env`` and the page is refreshed, the check passes
-    silently.
-
-    Missing variables checked:
-        - ``AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT``
-        - ``AZURE_DOCUMENT_INTELLIGENCE_KEY``
-        - ``AZURE_SEARCH_ENDPOINT``
-        - ``AZURE_SEARCH_KEY``
-        - ``AZURE_OPENAI_ENDPOINT``
-        - ``AZURE_OPENAI_KEY``
-    """
+    """Stop the app with a clear error if mandatory Azure credentials are missing."""
     required = {
         "AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT": DOC_INTELLIGENCE_ENDPOINT,
         "AZURE_DOCUMENT_INTELLIGENCE_KEY": DOC_INTELLIGENCE_KEY,
@@ -241,24 +150,6 @@ def _render_config_check() -> None:
 
 
 def _render_speech_toggle(speech_enabled: bool) -> None:
-    """Render the text-to-speech toggle or a disabled-reason caption in the sidebar.
-
-    When all speech prerequisites are met (SDK installed + credentials present),
-    renders a Streamlit ``st.toggle`` widget that lets users enable or disable
-    "Read answers aloud" live text-to-speech playback.  The widget state is
-    stored in ``st.session_state.tts_enabled``.
-
-    When speech is not available, renders an informational caption instead of
-    a toggle, listing the specific reasons why speech is disabled (missing SDK,
-    missing API key, missing region).  This gives users clear guidance on what
-    to install or configure to enable the feature.
-
-    Args:
-        speech_enabled (bool): Pre-computed flag indicating whether the Speech
-            SDK is installed AND both ``AZURE_SPEECH_KEY`` and
-            ``AZURE_SPEECH_REGION`` are configured.  Passed in from
-            :func:`main` to avoid repeating the same checks.
-    """
     if speech_enabled:
         st.toggle("🔊 Read answers aloud", value=True, key="tts_enabled")
     else:
@@ -273,23 +164,6 @@ def _render_speech_toggle(speech_enabled: bool) -> None:
 
 
 def _render_language_selector() -> None:
-    """Render the output language dropdown and Translator status in the sidebar.
-
-    Displays a ``st.selectbox`` populated with the language display names from
-    ``LANGUAGE_CONFIG`` (English, Hindi, French, Telugu).  The selected value
-    is persisted in ``st.session_state.output_language`` and read by
-    :func:`_process_query`, :func:`_generate_summary`, and the TTS pipeline.
-
-    If a non-English language is selected, also shows a status indicator:
-
-    * Green checkmark (✅) with "Azure Translator connected" if
-      ``AZURE_TRANSLATOR_KEY`` is set.
-    * Orange warning (⚠️) explaining the key is missing and answers will
-      remain in English if it is not.
-
-    This lets users immediately understand whether their language selection
-    will actually be applied before sending a question.
-    """
     st.subheader("🌐 Output Language")
     st.selectbox(
         "AI answers and speech in:",
@@ -309,22 +183,6 @@ def _render_language_selector() -> None:
 
 
 def _render_indexed_docs() -> None:
-    """Render the list of documents indexed during the current session.
-
-    Displays each document as a labelled card with the filename, page count,
-    and chunk count collected at upload time and stored in
-    ``st.session_state.indexed_docs``.
-
-    When at least one document is listed, also renders a "Clear chat history"
-    button that wipes ``st.session_state.messages`` and
-    ``st.session_state.document_summary`` and triggers a rerun.  This lets
-    users start a fresh conversation without re-uploading their documents.
-
-    When no documents have been uploaded in the current session, shows an info
-    box reminding the user that they can still query documents that were
-    indexed in a previous session (the AI Search index persists across
-    sessions).
-    """
     st.subheader("📚 Indexed Documents")
     if st.session_state.indexed_docs:
         for doc in st.session_state.indexed_docs:
@@ -346,26 +204,7 @@ def _render_indexed_docs() -> None:
 
 
 def _generate_summary() -> None:
-    """Fetch all chunks for the selected document and generate a full-document summary.
-
-    Triggered when the user clicks "Generate Summary" in the Summary tab.
-    Reads the selected document name from ``st.session_state.summary_doc_select``
-    and the desired output language from ``st.session_state.output_language``.
-
-    Execution steps:
-        1. Call :func:`~services.search.fetch_chunks_by_document` to retrieve
-           all indexed chunks for the document in reading order.
-        2. Call :func:`~services.llm.generate_document_summary` with the chunks
-           and target language.
-        3. Store the result in ``st.session_state.document_summary`` and call
-           ``st.rerun()`` so the summary renders in the tab.
-
-    Error handling:
-        - Warns the user (via ``st.warning``) if no chunks are found for the
-          selected document (e.g., if the document was deleted from the index).
-        - Catches and displays any exception from the service calls via
-          ``st.error`` without crashing the app.
-    """
+    """Fetch chunks for the selected document and generate a summary."""
     document_name = st.session_state.get("summary_doc_select")
     if not document_name:
         st.warning("Please select a document first.")
@@ -385,40 +224,6 @@ def _generate_summary() -> None:
 
 
 def _render_upload_section() -> None:
-    """Render the PDF upload widget and drive the full document ingestion pipeline.
-
-    Displays a ``st.file_uploader`` that accepts PDF files.  When a file is
-    selected and the user clicks "Analyze & Index", this function orchestrates
-    the complete ingestion pipeline with a live progress bar:
-
-    +--------+-------------------------------------------------------+---------+
-    | Step   | Action                                                | Progress|
-    +========+=======================================================+=========+
-    | 1      | ``analyze_pdf`` — Send PDF bytes to Document          | 10%     |
-    |        | Intelligence and extract per-page text.               |         |
-    +--------+-------------------------------------------------------+---------+
-    | 2      | Preview extracted text in a collapsible expander      | —       |
-    |        | (first 3 pages, up to 400 chars each).                |         |
-    +--------+-------------------------------------------------------+---------+
-    | 3      | ``chunk_pages`` — Split pages into overlapping        | 40%     |
-    |        | 1 000-char chunks with 200-char overlap.              |         |
-    +--------+-------------------------------------------------------+---------+
-    | 4      | ``ensure_search_index`` — Create the Azure AI Search  | 55%     |
-    |        | index if it does not already exist.                   |         |
-    +--------+-------------------------------------------------------+---------+
-    | 5      | ``upload_chunks_to_index`` — Embed all chunks with    | 70%     |
-    |        | ada-002 and upload to the search index.               |         |
-    +--------+-------------------------------------------------------+---------+
-    | 6      | Success banner + session state update.                | 100%    |
-    +--------+-------------------------------------------------------+---------+
-
-    On success, appends a metadata dict (name, pages, chunks) to
-    ``st.session_state.indexed_docs`` and calls ``st.rerun()`` so the sidebar
-    document list refreshes immediately.
-
-    Errors at any step are displayed via ``st.error`` and ``st.stop()`` halts
-    processing at that stage without affecting already-indexed documents.
-    """
     st.subheader("➕ Upload New Document")
     uploaded_file = st.file_uploader(
         "Choose a PDF file",
@@ -483,21 +288,6 @@ def _render_upload_section() -> None:
 # ================================================================
 
 def _render_chat_history() -> None:
-    """Re-render the full conversation history from session state.
-
-    Iterates over ``st.session_state.messages`` and renders each message in a
-    ``st.chat_message`` container with the appropriate role icon (user or
-    assistant).  For assistant messages, additionally renders:
-
-    - A collapsible "Sources & Citations" expander listing each source chunk's
-      page number, RRF relevance score, and the first 300 characters of content.
-    - An audio player (``st.audio``) if a WAV audio stream was generated for
-      that response (i.e., when TTS was enabled).
-
-    This function is called at the top of the chat tab on every Streamlit
-    rerun so the full history is always visible when the page refreshes after
-    a new message is added.
-    """
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
@@ -514,33 +304,7 @@ def _render_chat_history() -> None:
 
 
 def _collect_voice_query(speech_enabled: bool) -> str | None:
-    """Render the audio recorder widget and return a transcribed query if new audio is available.
-
-    Displays a ``st.audio_input`` recorder widget when speech is enabled.  To
-    prevent the same recording from being re-transcribed on every Streamlit
-    rerun (Streamlit re-executes the entire script on each interaction), the
-    function computes an **MD5 hash** of the raw audio bytes and compares it
-    to ``st.session_state.last_audio_hash``.  Only if the hash is new does it
-    proceed to transcription.
-
-    Transcription is delegated to :func:`~services.speech.transcribe_audio`.
-    The transcribed text is displayed to the user in an info box ("Heard: ..."),
-    stored temporarily in ``st.session_state.voice_query``, cleared from
-    session state before returning, and returned as the function result so it
-    can be processed by :func:`_process_query`.
-
-    Args:
-        speech_enabled (bool): Whether voice input is available (SDK installed
-            and ``AZURE_SPEECH_KEY`` / ``AZURE_SPEECH_REGION`` are configured).
-            If ``False``, the function returns ``None`` immediately without
-            rendering any widget.
-
-    Returns:
-        str | None: The transcribed question as a plain string if new audio
-            was recorded and transcribed successfully.  Returns ``None`` if
-            speech is disabled, no audio has been recorded, the same audio
-            was already processed, or transcription yielded an empty result.
-    """
+    """Render the audio recorder widget and return a transcribed query if available."""
     if not speech_enabled:
         return None
 
@@ -579,44 +343,7 @@ def _collect_voice_query(speech_enabled: bool) -> str | None:
 
 
 def _process_query(query: str, speech_enabled: bool) -> None:
-    """Execute the full RAG pipeline for a user query and stream the response to the UI.
-
-    This is the core request-handling function.  It is called whenever a new
-    query is available — whether typed in the chat input or transcribed from
-    voice.
-
-    Pipeline steps:
-        1. **Append user message** — Adds the query to
-           ``st.session_state.messages`` and renders it in a ``st.chat_message``
-           bubble immediately.
-        2. **Hybrid search** — Calls :func:`~services.search.hybrid_search`
-           with ``top_k=5`` to retrieve the most relevant document chunks.
-        3. **Answer generation** — Calls :func:`~services.llm.generate_answer`
-           with the query, retrieved chunks, and the target language.  If no
-           search results are found, returns a fallback "no content" message.
-        4. **Source display** — Renders a collapsible "Sources & Citations"
-           expander showing each source chunk's page number, score, and a
-           300-character preview.
-        5. **TTS (optional)** — If speech is enabled and the TTS toggle is on,
-           calls :func:`~services.llm.summarize_for_speech` followed by
-           :func:`~services.speech.synthesize_speech` to generate a WAV audio
-           stream, which is auto-played via ``st.audio``.
-        6. **Append assistant message** — Stores the answer, sources list, and
-           audio data in ``st.session_state.messages`` so they persist across
-           reruns and are rendered by :func:`_render_chat_history`.
-
-    Error handling:
-        - If ``hybrid_search`` raises an exception, the error message is shown
-          as the assistant reply and sources are cleared.
-        - TTS errors show a warning (``st.warning``) but do not affect the
-          text answer.
-
-    Args:
-        query (str): The user's question — either from ``st.chat_input`` or
-            from :func:`_collect_voice_query`.
-        speech_enabled (bool): Whether voice output should be attempted after
-            the answer is generated.
-    """
+    """Run the full RAG pipeline for a user query and render the response."""
     st.session_state.messages.append({"role": "user", "content": query})
     with st.chat_message("user"):
         st.markdown(query)
