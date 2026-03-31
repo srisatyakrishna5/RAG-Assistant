@@ -1,3 +1,21 @@
+"""
+config.py — Centralized application configuration.
+
+All Azure service credentials and deployment names are loaded from environment
+variables (or a local .env file via python-dotenv).  Every other module imports
+these constants instead of reading os.getenv() directly, so configuration is
+managed in exactly one place.
+
+Required variables (app will refuse to start if these are missing):
+    AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT / KEY
+    AZURE_SEARCH_ENDPOINT / KEY
+    AZURE_OPENAI_ENDPOINT / KEY
+
+Optional variables (features are gracefully disabled when absent):
+    AZURE_SPEECH_KEY / REGION  — enables voice input and text-to-speech
+    AZURE_TRANSLATOR_KEY / REGION — enables multi-language output
+"""
+
 import os
 from dotenv import load_dotenv
 
