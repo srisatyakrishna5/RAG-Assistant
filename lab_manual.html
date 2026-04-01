@@ -1,0 +1,1308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lab Manual — RAG Document Assistant</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --color-bg: #ffffff;
+            --color-surface: #f8f9fb;
+            --color-border: #e2e6ec;
+            --color-text: #1e293b;
+            --color-text-muted: #64748b;
+            --color-primary: #0078d4;
+            --color-primary-light: #e8f4fd;
+            --color-accent: #5b21b6;
+            --color-code-bg: #1e1e2e;
+            --color-code-text: #cdd6f4;
+            --color-warning-bg: #fff7ed;
+            --color-warning-border: #fb923c;
+            --color-info-bg: #eff6ff;
+            --color-info-border: #3b82f6;
+            --color-success: #16a34a;
+            --color-tip-bg: #f0fdf4;
+            --color-tip-border: #22c55e;
+            --sidebar-width: 280px;
+            --content-max-width: 900px;
+            --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --font-mono: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html {
+            scroll-behavior: smooth;
+            scroll-padding-top: 80px;
+        }
+
+        body {
+            font-family: var(--font-body);
+            font-size: 16px;
+            line-height: 1.7;
+            color: var(--color-text);
+            background: var(--color-bg);
+        }
+
+        /* ── Top Navigation Bar ── */
+        .top-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: linear-gradient(135deg, #0078d4 0%, #5b21b6 100%);
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        .top-bar .logo {
+            font-size: 20px;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: -0.3px;
+        }
+
+        .top-bar .logo span { opacity: 0.8; font-weight: 400; }
+
+        .top-bar .menu-toggle {
+            display: none;
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 24px;
+            cursor: pointer;
+            margin-right: 16px;
+        }
+
+        /* ── Sidebar Navigation ── */
+        .sidebar {
+            position: fixed;
+            top: 60px;
+            left: 0;
+            bottom: 0;
+            width: var(--sidebar-width);
+            background: var(--color-surface);
+            border-right: 1px solid var(--color-border);
+            overflow-y: auto;
+            padding: 20px 0;
+            z-index: 900;
+            transition: transform 0.3s;
+        }
+
+        .sidebar nav { padding: 0 16px; }
+
+        .sidebar .nav-section {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--color-text-muted);
+            padding: 16px 12px 6px;
+            border-top: 1px solid var(--color-border);
+            margin-top: 8px;
+        }
+
+        .sidebar .nav-section:first-child { border-top: none; margin-top: 0; }
+
+        .sidebar a {
+            display: block;
+            padding: 6px 12px;
+            font-size: 13.5px;
+            color: var(--color-text);
+            text-decoration: none;
+            border-radius: 6px;
+            transition: background 0.15s, color 0.15s;
+            line-height: 1.5;
+        }
+
+        .sidebar a:hover {
+            background: var(--color-primary-light);
+            color: var(--color-primary);
+        }
+
+        .sidebar a.active {
+            background: var(--color-primary);
+            color: #fff;
+            font-weight: 500;
+        }
+
+        .sidebar a.sub {
+            padding-left: 28px;
+            font-size: 12.5px;
+            color: var(--color-text-muted);
+        }
+
+        .sidebar a.sub:hover { color: var(--color-primary); }
+
+        /* ── Main Content ── */
+        .content {
+            margin-left: var(--sidebar-width);
+            margin-top: 60px;
+            padding: 48px 56px 100px;
+            max-width: calc(var(--content-max-width) + 112px + var(--sidebar-width));
+        }
+
+        .content > * + * { margin-top: 20px; }
+
+        /* ── Typography ── */
+        h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            color: var(--color-text);
+            padding-bottom: 12px;
+            border-bottom: 3px solid var(--color-primary);
+            margin-bottom: 4px;
+        }
+
+        h1 .emoji { margin-right: 8px; }
+
+        .subtitle {
+            font-size: 1.05rem;
+            color: var(--color-text-muted);
+            font-weight: 500;
+            margin-bottom: 28px;
+        }
+
+        h2 {
+            font-size: 1.55rem;
+            font-weight: 700;
+            color: var(--color-text);
+            margin-top: 52px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--color-border);
+            scroll-margin-top: 80px;
+        }
+
+        h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--color-text);
+            margin-top: 40px;
+            scroll-margin-top: 80px;
+        }
+
+        h4 {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: var(--color-accent);
+            margin-top: 32px;
+            scroll-margin-top: 80px;
+        }
+
+        p { margin-top: 12px; }
+
+        strong { font-weight: 600; }
+
+        a { color: var(--color-primary); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        /* ── Lists ── */
+        ul, ol {
+            margin-top: 10px;
+            padding-left: 28px;
+        }
+
+        li { margin-top: 6px; }
+        li > ul, li > ol { margin-top: 4px; }
+
+        /* ── Code ── */
+        code {
+            font-family: var(--font-mono);
+            font-size: 0.88em;
+            background: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: #c2185b;
+        }
+
+        pre {
+            margin-top: 14px;
+            background: var(--color-code-bg);
+            color: var(--color-code-text);
+            border-radius: 10px;
+            padding: 20px 24px;
+            overflow-x: auto;
+            font-family: var(--font-mono);
+            font-size: 0.88em;
+            line-height: 1.65;
+            position: relative;
+        }
+
+        pre code {
+            background: none;
+            color: inherit;
+            padding: 0;
+            border-radius: 0;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: rgba(255,255,255,0.6);
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: var(--font-body);
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .copy-btn:hover { background: rgba(255,255,255,0.2); color: #fff; }
+
+        /* ── Blockquotes / Callouts ── */
+        blockquote {
+            margin-top: 16px;
+            border-left: 4px solid var(--color-info-border);
+            background: var(--color-info-bg);
+            padding: 14px 20px;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.95rem;
+        }
+
+        blockquote.tip {
+            border-left-color: var(--color-tip-border);
+            background: var(--color-tip-bg);
+        }
+
+        blockquote.warning {
+            border-left-color: var(--color-warning-border);
+            background: var(--color-warning-bg);
+        }
+
+        blockquote p:first-child { margin-top: 0; }
+
+        /* ── Tables ── */
+        table {
+            margin-top: 16px;
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95rem;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 10px 14px;
+            border: 1px solid var(--color-border);
+        }
+
+        th {
+            background: var(--color-surface);
+            font-weight: 600;
+        }
+
+        tr:nth-child(even) td { background: #fafbfc; }
+
+        /* ── Horizontal Rule ── */
+        hr {
+            border: none;
+            height: 2px;
+            background: var(--color-border);
+            margin: 48px 0;
+        }
+
+        /* ── .env template box ── */
+        .env-block {
+            border: 2px dashed var(--color-primary);
+            border-radius: 10px;
+            padding: 24px;
+            background: #fafcff;
+            margin-top: 16px;
+        }
+
+        /* ── Progress cards ── */
+        .progress-step {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            margin-top: 6px;
+        }
+
+        .progress-step .pct {
+            font-weight: 700;
+            color: var(--color-primary);
+            min-width: 40px;
+        }
+
+        /* ── Back to top button ── */
+        .back-to-top {
+            position: fixed;
+            bottom: 32px;
+            right: 32px;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--color-primary);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            text-decoration: none;
+            box-shadow: 0 4px 12px rgba(0,120,212,0.35);
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 800;
+        }
+
+        .back-to-top.visible { opacity: 1; }
+
+        /* ── Responsive ── */
+        @media (max-width: 960px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+            .content { margin-left: 0; padding: 32px 20px 80px; }
+            .top-bar .menu-toggle { display: block; }
+        }
+
+        @media print {
+            .top-bar, .sidebar, .back-to-top { display: none; }
+            .content { margin-left: 0; padding: 0; }
+            pre { white-space: pre-wrap; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<header class="top-bar">
+    <button class="menu-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')" aria-label="Toggle navigation">&#9776;</button>
+    <div class="logo">&#129514; Lab Manual <span>— RAG Document Assistant</span></div>
+</header>
+
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+    <nav>
+        <div class="nav-section">Getting Started</div>
+        <a href="#welcome">Welcome</a>
+        <a href="#part1">Part 1 — What We Are Building</a>
+
+        <div class="nav-section">Azure Setup</div>
+        <a href="#part2">Part 2 — Azure Account</a>
+        <a href="#part3">Part 3 — Azure Services</a>
+        <a href="#step31" class="sub">3.1 Document Intelligence</a>
+        <a href="#step32" class="sub">3.2 Azure AI Search</a>
+        <a href="#step33" class="sub">3.3 Microsoft Foundry</a>
+        <a href="#step34" class="sub">3.4 Speech (Optional)</a>
+        <a href="#step35" class="sub">3.5 Translator (Optional)</a>
+
+        <div class="nav-section">Installation</div>
+        <a href="#part4">Part 4 — Installing Python</a>
+        <a href="#part5">Part 5 — Downloading the App</a>
+        <a href="#part6">Part 6 — Python Environment</a>
+
+        <div class="nav-section">Configuration &amp; Run</div>
+        <a href="#part7">Part 7 — Configuration (.env)</a>
+        <a href="#part8">Part 8 — Running the App</a>
+
+        <div class="nav-section">Exercises</div>
+        <a href="#part9">Part 9 — Walkthrough</a>
+        <a href="#ex1" class="sub">Exercise 1: Foundry Agent</a>
+        <a href="#ex2" class="sub">Exercise 2: Upload Document</a>
+        <a href="#ex3" class="sub">Exercise 3: Ask Questions</a>
+        <a href="#ex4" class="sub">Exercise 4: Generate Summary</a>
+        <a href="#ex5" class="sub">Exercise 5: Change Language</a>
+        <a href="#ex6" class="sub">Exercise 6: Voice Input</a>
+
+        <div class="nav-section">Reference</div>
+        <a href="#part10">Part 10 — Stop &amp; Restart</a>
+        <a href="#part11">Part 11 — Troubleshooting</a>
+        <a href="#part12">Part 12 — Clean Up</a>
+    </nav>
+</aside>
+
+<!-- Main Content -->
+<main class="content">
+
+    <!-- ════════════════════════════ TITLE ════════════════════════════ -->
+    <h1 id="top"><span class="emoji">&#129514;</span> Lab Manual — RAG Document Assistant</h1>
+    <p class="subtitle">Step-by-Step Setup Guide to experience Azure AI services</p>
+
+    <hr>
+
+    <!-- ════════════════════════════ WELCOME ════════════════════════════ -->
+    <h2 id="welcome">Welcome</h2>
+    <p>This lab manual walks you through every single step needed to install and run the <strong>RAG Document Assistant</strong> on your personal computer — even if you have never written a line of code.</p>
+    <p>By the end of this guide, you will have a working web application that lets you upload any PDF and ask questions about its contents in plain language.</p>
+    <p><strong>What you will need:</strong></p>
+    <ul>
+        <li>A computer running Windows 10/11, macOS, or Linux</li>
+        <li>An internet connection</li>
+        <li>An Azure account (free trial is fine)</li>
+        <li>About 60–90 minutes of uninterrupted time</li>
+    </ul>
+
+    <hr>
+
+    <!-- ════════════════════════════ PART 1 ════════════════════════════ -->
+    <h2 id="part1">Part 1 — Understanding What We Are Building</h2>
+    <p>Before we start, here is a simple explanation of what the app does:</p>
+    <ol>
+        <li><strong>You upload a PDF.</strong> The app reads every page and extracts the text.</li>
+        <li><strong>The text is broken into small pieces</strong> (called "chunks") and stored in a searchable database on Azure.</li>
+        <li><strong>You type a question.</strong> The app finds the most relevant pieces of text from your PDF.</li>
+        <li><strong>An AI (GPT-4.1) reads those pieces</strong> and writes you a direct answer, telling you exactly which pages the information came from.</li>
+    </ol>
+    <p>No information is stored on any third-party service — everything goes to your own private Azure account.</p>
+
+    <hr>
+
+    <!-- ════════════════════════════ PART 2 ════════════════════════════ -->
+    <h2 id="part2">Part 2 — Setting Up Your Azure Account</h2>
+    <blockquote><p><strong>If you already have an Azure account, skip to Step 2.3.</strong></p></blockquote>
+
+    <h3 id="step21">Step 2.1 — Create a Free Azure Account</h3>
+    <ol>
+        <li>Open your web browser and go to <strong><a href="https://azure.microsoft.com/free">https://azure.microsoft.com/free</a></strong></li>
+        <li>Click the blue <strong>"Start free"</strong> button.</li>
+        <li>Sign in with a Microsoft account (Outlook, Hotmail, or any @microsoft.com address). If you do not have one, click "Create one" on the sign-in page.</li>
+        <li>Complete the registration form. You will need:
+            <ul>
+                <li>A phone number (for verification)</li>
+                <li>A credit card (it will NOT be charged for free-tier services)</li>
+            </ul>
+        </li>
+        <li>Agree to the terms and click <strong>"Sign up"</strong>.</li>
+        <li>You will land on the Azure Portal dashboard at <strong><a href="https://portal.azure.com">https://portal.azure.com</a></strong>.</li>
+    </ol>
+
+    <h3 id="step22">Step 2.2 — Familiarise Yourself with the Azure Portal</h3>
+    <p>The Azure Portal is the web interface where you create and manage all Azure services. Key things to know:</p>
+    <ul>
+        <li>The <strong>search bar</strong> at the top lets you find any service by name.</li>
+        <li><strong>Resource groups</strong> are like folders that hold related services together.</li>
+        <li>Every service has a <strong>"Keys and Endpoint"</strong> or <strong>"Keys"</strong> section in the left menu — this is where you find the credentials (keys) needed to connect the app to that service.</li>
+    </ul>
+
+    <h3 id="step23">Step 2.3 — Create a Resource Group</h3>
+    <p>A resource group keeps all the services for this project organised together.</p>
+    <ol>
+        <li>In the Azure Portal, type <strong>"Resource groups"</strong> in the search bar and click the result.</li>
+        <li>Click <strong>"+ Create"</strong> in the top-left corner.</li>
+        <li>Fill in:
+            <ul>
+                <li><strong>Subscription:</strong> Select your subscription (usually "Azure subscription 1" for free accounts).</li>
+                <li><strong>Resource group name:</strong> Type <code>document-advisor-rg</code></li>
+                <li><strong>Region:</strong> Select the region closest to you (e.g., East US, West Europe).</li>
+            </ul>
+        </li>
+        <li>Click <strong>"Review + Create"</strong>, then <strong>"Create"</strong>.</li>
+    </ol>
+
+    <hr>
+
+    <!-- ════════════════════════════ PART 3 ════════════════════════════ -->
+    <h2 id="part3">Part 3 — Creating Azure Services</h2>
+    <p>You need to create <strong>four Azure services</strong> (one of which is a Microsoft Foundry project with model deployments). Follow the steps below for each one.</p>
+    <hr>
+
+    <!-- ── 3.1 ── -->
+    <h3 id="step31">Step 3.1 — Create Azure Document Intelligence</h3>
+    <p>This service reads your PDF and extracts the text from every page.</p>
+    <ol>
+        <li>In the Azure Portal search bar, type <strong>"Document Intelligence"</strong> and click <strong>"Document Intelligence"</strong> in the results.</li>
+        <li>Click <strong>"+ Create"</strong>.</li>
+        <li>Fill in:
+            <ul>
+                <li><strong>Subscription:</strong> Your subscription</li>
+                <li><strong>Resource group:</strong> <code>document-advisor-rg</code></li>
+                <li><strong>Region:</strong> Same region you chose earlier</li>
+                <li><strong>Name:</strong> Type a unique name, e.g., <code>doc-intel-yourname</code></li>
+                <li><strong>Pricing tier:</strong> Select <strong>"Free F0"</strong> (allows 500 pages/month free)</li>
+            </ul>
+        </li>
+        <li>Click <strong>"Review + Create"</strong>, then <strong>"Create"</strong>.</li>
+        <li>Wait for the deployment to finish (green check mark). Click <strong>"Go to resource"</strong>.</li>
+        <li>In the left menu, click <strong>"Keys and Endpoint"</strong>.</li>
+        <li><strong>Copy and save in a text file:</strong>
+            <ul>
+                <li><strong>Endpoint</strong> (e.g., <code>https://doc-intel-yourname.cognitiveservices.azure.com/</code>)</li>
+                <li><strong>KEY 1</strong> (a long string of letters and numbers)</li>
+            </ul>
+        </li>
+    </ol>
+    <hr>
+
+    <!-- ── 3.2 ── -->
+    <h3 id="step32">Step 3.2 — Create Azure AI Search</h3>
+    <p>This is the searchable database where your document chunks will be stored.</p>
+    <ol>
+        <li>In the search bar, type <strong>"AI Search"</strong> and click <strong>"AI Search"</strong>.</li>
+        <li>Click <strong>"+ Create"</strong>.</li>
+        <li>Fill in:
+            <ul>
+                <li><strong>Subscription:</strong> Your subscription</li>
+                <li><strong>Resource group:</strong> <code>document-advisor-rg</code></li>
+                <li><strong>Service name:</strong> Type a unique name, e.g., <code>search-yourname</code> (must be lowercase, no spaces)</li>
+                <li><strong>Location:</strong> Same region</li>
+                <li><strong>Pricing tier:</strong> Click "Change Pricing Tier" and select <strong>"Free"</strong></li>
+            </ul>
+        </li>
+        <li>Click <strong>"Review + Create"</strong>, then <strong>"Create"</strong>.</li>
+        <li>Wait for deployment. Click <strong>"Go to resource"</strong>.</li>
+        <li>In the left menu, click <strong>"Keys"</strong>.</li>
+        <li><strong>Copy and save:</strong>
+            <ul>
+                <li><strong>Url</strong> (shown at the top of the Overview page, e.g., <code>https://search-yourname.search.windows.net</code>)</li>
+                <li><strong>Primary admin key</strong> (from the Keys page)</li>
+            </ul>
+        </li>
+    </ol>
+    <hr>
+
+    <!-- ── 3.3 Microsoft Foundry ── -->
+    <h3 id="step33">Step 3.3 — Create a Microsoft Foundry Project and Deploy Models</h3>
+
+    <p>Instead of creating a standalone Azure OpenAI resource, you will use <strong>Microsoft Foundry</strong>. Foundry is the unified platform that brings together AI models, agents, and tools under a single Azure resource — it hosts your model deployments and provides a single project endpoint and API key for both GPT-4.1 and embeddings.</p>
+    <p>At the heart of every generative AI app or agent, there is a language model — usually a large language model (LLM). Microsoft Foundry provides a large collection of models from Microsoft, OpenAI, and other providers that you can deploy and use in your AI apps and agents.</p>
+
+    <blockquote>
+        <p><strong>Terminology note:</strong> Microsoft Foundry was previously known as "Azure AI Foundry" and "Azure AI Studio". The current documentation and portal use the name <strong>Microsoft Foundry</strong>. If you see references to the older names elsewhere, they refer to the same service.</p>
+    </blockquote>
+
+    <blockquote class="warning">
+        <p><strong>Note:</strong> Many components of Microsoft Foundry, including the Microsoft Foundry portal, are subject to continual development. This reflects the fast-moving nature of artificial intelligence technology. Some elements of your user experience may differ from the descriptions in this guide.</p>
+    </blockquote>
+
+    <!-- 3.3a -->
+    <h4 id="step33a">Step 3.3a — Open the Microsoft Foundry Portal</h4>
+    <ol>
+        <li>Open your browser and go to <strong><a href="https://ai.azure.com">https://ai.azure.com</a></strong>.</li>
+        <li>Sign in with the same Microsoft account you used for the Azure Portal.</li>
+        <li>Close any <strong>tips or quick-start panes</strong> that appear the first time you sign in. If necessary, use the <strong>Foundry logo</strong> at the top left to navigate to the home page.</li>
+        <li>If you see a <strong>"New Foundry"</strong> toggle in the toolbar at the top of the page, make sure it is <strong>turned on</strong>. These instructions refer to the new Foundry experience.</li>
+        <li>You will land on the <strong>Microsoft Foundry</strong> home page.</li>
+    </ol>
+
+    <!-- 3.3b -->
+    <h4 id="step33b">Step 3.3b — Create a New Foundry Project</h4>
+    <p>A Foundry <strong>project</strong> organises your work — model deployments, agents, evaluations, and files — under a single <strong>Foundry resource</strong> in Azure.</p>
+    <ol>
+        <li>In the upper-left corner of the portal, click the <strong>project name</strong> dropdown (it may say "Select a project" if this is your first time).</li>
+        <li>Click <strong>"Create new project"</strong>.</li>
+        <li>Enter a <strong>project name</strong>, e.g., <code>document-advisor-project</code>.</li>
+        <li><em>(Optional — Advanced options)</em> Click <strong>"Advanced options"</strong> if you want to customise:
+            <ul>
+                <li><strong>Foundry resource:</strong> Enter a valid name for your AI Foundry resource (or let the portal auto-create one).</li>
+                <li><strong>Subscription:</strong> Your Azure subscription.</li>
+                <li><strong>Resource group:</strong> Select <code>document-advisor-rg</code> (the one you created in Step 2.3), or create/select a resource group.</li>
+                <li><strong>Region:</strong> Select any of the <strong>AI Foundry recommended regions</strong> — <strong>"East US"</strong> or <strong>"East US 2"</strong> have the widest model availability.</li>
+                <li>The portal will automatically create a <strong>Foundry resource</strong> for you when you create the project. You do not need to create one separately.</li>
+            </ul>
+        </li>
+        <li>Click <strong>"Create project"</strong>.</li>
+        <li>Wait for provisioning to complete (1–3 minutes). You will be taken to the project <strong>Home</strong> page.</li>
+    </ol>
+
+    <!-- 3.3c -->
+    <h4 id="step33c">Step 3.3c — Find Your Project Endpoint and Key</h4>
+    <ol>
+        <li>On the project <strong>Home</strong> page, you will see your <strong>project endpoint</strong> and <strong>API key</strong> displayed.</li>
+        <li>The endpoint looks like <code>https://YOUR-RESOURCE-NAME.openai.azure.com/</code> or <code>https://YOUR-RESOURCE-NAME.services.ai.azure.com/</code>.</li>
+        <li><strong>Copy and save in your text file:</strong>
+            <ul>
+                <li><strong>Project endpoint</strong> (the full URL shown on the Home page)</li>
+                <li><strong>API key</strong> (click the copy icon next to it)</li>
+            </ul>
+        </li>
+    </ol>
+    <blockquote>
+        <p><strong>Note:</strong> You do not need an API key if you use Microsoft Entra ID authentication, but for this lab we use the API key approach for simplicity. This endpoint and key work for both GPT-4.1 and the embedding model — you do not need separate credentials.</p>
+        <p><strong>Authentication options:</strong> Microsoft Foundry supports two authentication methods:</p>
+        <ul>
+            <li><strong>Key-based authentication:</strong> The client app presents a security key (simplest approach — used in this lab).</li>
+            <li><strong>Microsoft Entra ID authentication:</strong> The client app presents an authentication token based on an identity assigned to it or to the current user (recommended for production).</li>
+        </ul>
+    </blockquote>
+
+    <!-- 3.3d -->
+    <h4 id="step33d">Step 3.3d — Deploy the GPT-4.1 Model</h4>
+    <ol>
+        <li>From the project Home page, select <strong>"Find models"</strong> (or on the <strong>Discover</strong> page, select the <strong>Models</strong> tab) to view the Microsoft Foundry <strong>model catalog</strong>.</li>
+        <li>In the search box, type <strong>"gpt-4.1"</strong> and press Enter.</li>
+        <li>Click <strong>"gpt-4.1"</strong> from the results list to open the model card, which describes its features and capabilities.</li>
+        <li>Click <strong>"Deploy"</strong> → <strong>"Custom settings"</strong> (or choose <strong>"Default settings"</strong> for the quickest setup).</li>
+        <li>Fill in the deployment details:
+            <ul>
+                <li><strong>Deployment name:</strong> Type exactly <code>gpt-4.1</code></li>
+                <li><strong>Deployment type:</strong> Select <strong>"Global Standard"</strong> (recommended — gives the highest quota and broadest availability)</li>
+                <li><strong>Tokens per minute rate limit:</strong> The default is fine for this lab (you can increase later if needed)</li>
+            </ul>
+        </li>
+        <li>Click <strong>"Deploy"</strong>.</li>
+        <li>Wait for the deployment to complete (usually under 1 minute). You will land on the <strong>model playground</strong> where you can test the model immediately.</li>
+    </ol>
+    <blockquote class="tip">
+        <p><strong>Tip — Insufficient quota?</strong> Model deployments are subject to regional quotas. If you don't have enough quota to deploy <code>gpt-4.1</code> in your project's region, you can use a different model — such as <strong>gpt-4.1-mini</strong>, <strong>gpt-4.1-nano</strong>, or <strong>gpt-4o-mini</strong>. Alternatively, create a new project in a different region. Update the <code>AZURE_OPENAI_DEPLOYMENT</code> value in your <code>.env</code> file to match the deployment name you chose.</p>
+    </blockquote>
+
+    <!-- 3.3e -->
+    <h4 id="step33e">Step 3.3e — Test the Model in the Playground (Optional)</h4>
+    <p>The model playground lets you chat with your deployed model and experiment with settings before connecting it to the application.</p>
+    <ol>
+        <li>In the <strong>Chat</strong> pane of the playground, enter a prompt such as <code>Who was Ada Lovelace?</code> and review the response.</li>
+        <li>Enter a follow-up prompt, such as <code>Tell me more about her work with Charles Babbage.</code> — the model retains conversation context between messages.</li>
+        <li>Use the <strong>New chat</strong> button (top-right of the chat pane) to restart the conversation and clear history.</li>
+        <li><strong>Experiment with system prompts:</strong> In the left pane, find the <strong>Instructions</strong> text area and change the system prompt — e.g., <code>You are an AI assistant that provides short and concise answers using simple language. Limit responses to a single sentence.</code> Then try the same prompt and observe the difference.</li>
+        <li><strong>Experiment with parameters:</strong> Next to the model name in the left pane, select <strong>Parameters</strong>. Review the settings (use the <strong>(i)</strong> links for descriptions). Changing the <strong>Temperature</strong> modifies randomness — lower values produce more deterministic responses, higher values produce more creative ones.</li>
+        <li>When finished experimenting, reset the instructions and parameters to their defaults.</li>
+    </ol>
+    <blockquote class="tip"><p><strong>Tip:</strong> Use the <strong>Stop generation</strong> button in the chat pane to halt long-running responses.</p></blockquote>
+
+    <!-- 3.3f -->
+    <h4 id="step33f">Step 3.3f — Deploy the Embedding Model</h4>
+    <ol>
+        <li>Navigate back to the model catalog: click <strong>"Discover"</strong> in the upper-right navigation, then <strong>"Models"</strong> in the left pane.</li>
+        <li>Search for <strong>"text-embedding-3-large"</strong> and click it.</li>
+        <li>Click <strong>"Deploy"</strong> → <strong>"Custom settings"</strong>.</li>
+        <li>Fill in:
+            <ul>
+                <li><strong>Deployment name:</strong> Type exactly <code>text-embedding-3-large</code></li>
+                <li><strong>Deployment type:</strong> Select <strong>"Standard"</strong></li>
+            </ul>
+        </li>
+        <li>Click <strong>"Deploy"</strong>.</li>
+        <li>Once the deployment completes, both models are ready.</li>
+    </ol>
+
+    <!-- 3.3g -->
+    <h4 id="step33g">Step 3.3g — Verify Your Deployments</h4>
+    <ol>
+        <li>In the upper-right navigation, click <strong>"Build"</strong>, then select <strong>"Models"</strong> in the left pane to see all deployments on your Foundry resource.</li>
+        <li>Confirm you see two deployments:
+            <ul>
+                <li><code>gpt-4.1</code> — Status: <strong>Succeeded</strong></li>
+                <li><code>text-embedding-3-large</code> — Status: <strong>Succeeded</strong></li>
+            </ul>
+        </li>
+        <li>If either shows a failure, click on it to see the error. Common issues:
+            <ul>
+                <li><strong>Insufficient quota:</strong> Try a different region or select a lower tokens-per-minute rate limit. You can request more quota via the <a href="https://aka.ms/oai/stuquotarequest">quota increase form</a>.</li>
+                <li><strong>Model not available in region:</strong> Go back to Step 3.3b and create a new project in <strong>East US</strong> or <strong>East US 2</strong>.</li>
+            </ul>
+        </li>
+    </ol>
+
+    <!-- 3.3h -->
+    <h4 id="step33h">Step 3.3h — View Client Code (Optional)</h4>
+    <p>The playground provides sample code that a client application can use to chat with the deployed model.</p>
+    <ol>
+        <li>In the model playground <strong>Chat</strong> pane, select the <strong>Code</strong> tab.</li>
+        <li>Choose the following code preferences:
+            <ul>
+                <li><strong>API:</strong> Responses API (the newer syntax offering greater flexibility for apps and agents)</li>
+                <li><strong>Language:</strong> Python</li>
+                <li><strong>SDK:</strong> OpenAI SDK</li>
+                <li><strong>Authentication:</strong> Key authentication</li>
+            </ul>
+        </li>
+        <li>The resulting sample should look similar to the following:</li>
+    </ol>
+
+    <pre><code>from openai import OpenAI
+
+endpoint = "https://your-project-resource.openai.azure.com/openai/v1/"
+deployment_name = "gpt-4.1"
+api_key = "&lt;your-api-key&gt;"
+
+client = OpenAI(
+    base_url=endpoint,
+    api_key=api_key
+)
+
+response = client.responses.create(
+    model=deployment_name,
+    input="What is the capital of France?",
+)
+
+print(f"answer: {response.output[0]}")</code></pre>
+
+    <p>The code connects to the resource endpoint for your Microsoft Foundry project, using its secret authentication key, and uses your deployed model to generate a response from an input prompt.</p>
+
+    <blockquote>
+        <p><strong>Note:</strong> The <strong>Completions</strong> API is the broadly used programmatic syntax. The <strong>Responses</strong> API is a newer syntax that offers greater flexibility for building apps that converse with both standalone models and agents. Both are supported. Our application (<code>app.py</code>) uses the Chat Completions API.</p>
+    </blockquote>
+
+    <ol start="4">
+        <li>Switch back to the <strong>Chat</strong> tab when you have finished reviewing the code.</li>
+    </ol>
+
+    <hr>
+
+    <!-- ── 3.4 ── -->
+    <h3 id="step34">Step 3.4 — Create Azure Speech Service (Optional)</h3>
+    <p>This service enables voice input and spoken answers. Skip this step if you only want text-based chat.</p>
+    <ol>
+        <li>In the search bar, type <strong>"Speech"</strong> and click <strong>"Speech services"</strong>.</li>
+        <li>Click <strong>"+ Create"</strong>.</li>
+        <li>Fill in:
+            <ul>
+                <li><strong>Subscription:</strong> Your subscription</li>
+                <li><strong>Resource group:</strong> <code>document-advisor-rg</code></li>
+                <li><strong>Region:</strong> Same region</li>
+                <li><strong>Name:</strong> Type a unique name, e.g., <code>speech-yourname</code></li>
+                <li><strong>Pricing tier:</strong> <strong>Free F0</strong></li>
+            </ul>
+        </li>
+        <li>Click <strong>"Review + Create"</strong>, then <strong>"Create"</strong>.</li>
+        <li>Go to the resource → <strong>"Keys and Endpoint"</strong>.</li>
+        <li><strong>Copy and save:</strong>
+            <ul>
+                <li><strong>KEY 1</strong></li>
+                <li><strong>Location/Region</strong> (e.g., <code>eastus</code>)</li>
+            </ul>
+        </li>
+    </ol>
+    <hr>
+
+    <!-- ── 3.5 ── -->
+    <h3 id="step35">Step 3.5 — Create Azure Translator (Optional)</h3>
+    <p>This service translates answers into Hindi, French, or Telugu. Skip this step if you only need English output.</p>
+    <ol>
+        <li>In the search bar, type <strong>"Translator"</strong> and click <strong>"Translator"</strong>.</li>
+        <li>Click <strong>"+ Create"</strong>.</li>
+        <li>Fill in:
+            <ul>
+                <li><strong>Subscription:</strong> Your subscription</li>
+                <li><strong>Resource group:</strong> <code>document-advisor-rg</code></li>
+                <li><strong>Region:</strong> Select <strong>"Global"</strong></li>
+                <li><strong>Name:</strong> Type a unique name, e.g., <code>translator-yourname</code></li>
+                <li><strong>Pricing tier:</strong> <strong>Free F0</strong></li>
+            </ul>
+        </li>
+        <li>Click <strong>"Review + Create"</strong>, then <strong>"Create"</strong>.</li>
+        <li>Go to the resource → <strong>"Keys and Endpoint"</strong>.</li>
+        <li><strong>Copy and save:</strong>
+            <ul>
+                <li><strong>KEY 1</strong></li>
+                <li><strong>Text Translation</strong> → <strong>Region</strong> (e.g., <code>global</code>)</li>
+            </ul>
+        </li>
+    </ol>
+
+    <hr>
+
+    <!-- ════════════════════════════ PART 4 ════════════════════════════ -->
+    <h2 id="part4">Part 4 — Installing Python</h2>
+    <p>Python is the programming language the app is written in. You need to install it on your computer.</p>
+
+    <h3 id="step41">Step 4.1 — Download Python</h3>
+    <ol>
+        <li>Open your browser and go to <strong><a href="https://www.python.org/downloads/">https://www.python.org/downloads/</a></strong></li>
+        <li>Click the large yellow button <strong>"Download Python 3.x.x"</strong> (any version 3.10 or higher is fine).</li>
+    </ol>
+
+    <h3 id="step42">Step 4.2 — Install Python on Windows</h3>
+    <ol>
+        <li>Run the downloaded installer (<code>.exe</code> file).</li>
+        <li><strong>VERY IMPORTANT:</strong> On the first screen, check the box <strong>"Add Python to PATH"</strong> at the bottom. Without this, nothing will work.</li>
+        <li>Click <strong>"Install Now"</strong>.</li>
+        <li>Wait for installation to complete. Click <strong>"Close"</strong>.</li>
+    </ol>
+
+    <h3 id="step43">Step 4.3 — Install Python on macOS</h3>
+    <ol>
+        <li>Run the downloaded <code>.pkg</code> installer.</li>
+        <li>Follow the on-screen prompts and click "Continue" through all screens.</li>
+        <li>Click "Install".</li>
+    </ol>
+
+    <h3 id="step44">Step 4.4 — Verify Python is Installed</h3>
+    <ol>
+        <li>Open a <strong>terminal</strong> (Command Prompt on Windows, Terminal on macOS/Linux).
+            <ul>
+                <li><strong>Windows:</strong> Press <code>Win + R</code>, type <code>cmd</code>, press Enter.</li>
+                <li><strong>macOS:</strong> Press <code>Cmd + Space</code>, type <code>Terminal</code>, press Enter.</li>
+            </ul>
+        </li>
+        <li>Type the following and press Enter:</li>
+    </ol>
+    <pre><code>python --version</code></pre>
+    <p>You should see something like <code>Python 3.12.0</code>. If you see an error, try <code>python3 --version</code>.</p>
+
+    <hr>
+
+    <!-- ════════════════════════════ PART 5 ════════════════════════════ -->
+    <h2 id="part5">Part 5 — Downloading the Application</h2>
+
+    <h3 id="step51">Step 5.1 — Download the Code</h3>
+    <p><strong>If you have Git installed:</strong></p>
+    <pre><code>git clone &lt;repository-url&gt;
+cd document-advisor</code></pre>
+    <p><strong>If you do NOT have Git:</strong></p>
+    <ol>
+        <li>Go to the repository page in your browser.</li>
+        <li>Click the green <strong>"Code"</strong> button → <strong>"Download ZIP"</strong>.</li>
+        <li>Extract the ZIP file to a convenient location (e.g., <code>C:\Users\YourName\document-advisor</code> on Windows, or <code>~/document-advisor</code> on macOS).</li>
+    </ol>
+
+    <h3 id="step52">Step 5.2 — Open a Terminal in the Project Folder</h3>
+    <p><strong>Windows:</strong></p>
+    <ol>
+        <li>Open File Explorer.</li>
+        <li>Navigate to the <code>document-advisor</code> folder.</li>
+        <li>Hold <code>Shift</code> and right-click inside the folder (not on a file).</li>
+        <li>Click <strong>"Open PowerShell window here"</strong> or <strong>"Open Command Prompt here"</strong>.</li>
+    </ol>
+    <p><strong>macOS:</strong></p>
+    <ol>
+        <li>Open Terminal.</li>
+        <li>Type <code>cd </code> (with a space after <code>cd</code>), then drag the <code>document-advisor</code> folder from Finder into the Terminal window. Press Enter.</li>
+    </ol>
+
+    <hr>
+
+    <!-- ════════════════════════════ PART 6 ════════════════════════════ -->
+    <h2 id="part6">Part 6 — Setting Up the Python Environment</h2>
+    <p>A "virtual environment" is an isolated container for the app's dependencies so they don't interfere with other Python software on your computer.</p>
+
+    <h3 id="step61">Step 6.1 — Create the Virtual Environment</h3>
+    <p>In the terminal inside the project folder, type the following and press Enter:</p>
+    <p><strong>Windows:</strong></p>
+    <pre><code>python -m venv .venv</code></pre>
+    <p><strong>macOS/Linux:</strong></p>
+    <pre><code>python3 -m venv .venv</code></pre>
+    <p>Wait a few seconds. You will not see much output — that is normal.</p>
+
+    <h3 id="step62">Step 6.2 — Activate the Virtual Environment</h3>
+    <p>You must activate the environment every time you open a new terminal window.</p>
+    <p><strong>Windows (Command Prompt):</strong></p>
+    <pre><code>.venv\Scripts\activate</code></pre>
+    <p><strong>Windows (PowerShell):</strong></p>
+    <pre><code>.venv\Scripts\Activate.ps1</code></pre>
+    <blockquote><p>If you get an error about "execution policy", type this first: <code>Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser</code></p></blockquote>
+    <p><strong>macOS/Linux:</strong></p>
+    <pre><code>source .venv/bin/activate</code></pre>
+    <p>After activation, your terminal prompt will change to show <code>(.venv)</code> at the beginning — this tells you the environment is active.</p>
+
+    <h3 id="step63">Step 6.3 — Install the Required Packages</h3>
+    <p>With the virtual environment active, type the following and press Enter:</p>
+    <pre><code>pip install -r requirements.txt</code></pre>
+    <p>This will download and install all the Python packages the app needs. It may take 2–5 minutes depending on your internet connection. You will see a lot of text scrolling — that is normal.</p>
+    <p>When it finishes, you should see a line like <code>Successfully installed ...</code>.</p>
+
+    <hr>
+
+    <!-- ════════════════════════════ PART 7 ════════════════════════════ -->
+    <h2 id="part7">Part 7 — Configuring the Application</h2>
+    <p>The app needs to know your Azure service credentials. These are stored in a special file called <code>.env</code> (dot env).</p>
+
+    <h3 id="step71">Step 7.1 — Create the .env File</h3>
+    <p>In the project folder, create a new file named exactly <code>.env</code> (with the dot at the beginning, no other extension).</p>
+    <p><strong>Windows:</strong></p>
+    <ol>
+        <li>Open Notepad.</li>
+        <li>Click <strong>File → Save As</strong>.</li>
+        <li>Navigate to the <code>document-advisor</code> folder.</li>
+        <li>In the "File name" box, type <code>.env</code> (including the dot).</li>
+        <li>In "Save as type", select <strong>"All Files (*.*)"</strong>.</li>
+        <li>Click <strong>Save</strong>.</li>
+    </ol>
+    <p><strong>macOS:</strong></p>
+    <ol>
+        <li>Open TextEdit.</li>
+        <li>Click <strong>Format → Make Plain Text</strong>.</li>
+        <li>Click <strong>File → Save</strong>.</li>
+        <li>Navigate to the <code>document-advisor</code> folder.</li>
+        <li>Name the file <code>.env</code> and click <strong>Save</strong>.</li>
+    </ol>
+
+    <h3 id="step72">Step 7.2 — Fill in Your Credentials</h3>
+    <p>Copy the template below into the <code>.env</code> file, then replace each <code>&lt;placeholder&gt;</code> value with the corresponding value you saved in Part 3:</p>
+    <div class="env-block">
+<pre><code># Azure Document Intelligence (from Step 3.1)
+AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT=https://YOUR-RESOURCE-NAME.cognitiveservices.azure.com/
+AZURE_DOCUMENT_INTELLIGENCE_KEY=PASTE_YOUR_KEY_1_HERE
+
+# Azure AI Search (from Step 3.2)
+AZURE_SEARCH_ENDPOINT=https://YOUR-SEARCH-NAME.search.windows.net
+AZURE_SEARCH_KEY=PASTE_YOUR_ADMIN_KEY_HERE
+AZURE_SEARCH_INDEX_NAME=rag-documents
+
+# Microsoft Foundry (from Step 3.3)
+AZURE_OPENAI_ENDPOINT=https://YOUR-RESOURCE-NAME.openai.azure.com/
+AZURE_OPENAI_KEY=PASTE_YOUR_FOUNDRY_API_KEY_HERE
+AZURE_OPENAI_DEPLOYMENT=gpt-4.1
+AZURE_OPENAI_EMBEDDING_DEPLOYMENT=text-embedding-3-large
+AZURE_OPENAI_API_VERSION=API_VERSION_TO_BE_COPIED_FROM_GPT4.1_MODEL_DEPLOYMENT
+
+# Azure Speech — optional, delete these lines if not using voice features
+AZURE_SPEECH_KEY=PASTE_YOUR_SPEECH_KEY_HERE
+AZURE_SPEECH_REGION=eastus
+
+# Azure Translator — optional, delete these lines if not using translation
+AZURE_TRANSLATOR_KEY=PASTE_YOUR_TRANSLATOR_KEY_HERE
+AZURE_TRANSLATOR_REGION=global</code></pre>
+    </div>
+    <blockquote class="tip">
+        <p><strong>Tips:</strong></p>
+        <ul>
+            <li>Do not add quotes around the values.</li>
+            <li>Do not add spaces around the <code>=</code> sign.</li>
+            <li>Make sure there are no trailing spaces at the end of each line.</li>
+            <li>If you skipped creating the Speech or Translator services, simply delete or comment out those lines (put a <code>#</code> at the start of the line).</li>
+        </ul>
+    </blockquote>
+
+    <h3 id="step73">Step 7.3 — Verify the .env File</h3>
+    <p>Open the <code>.env</code> file in Notepad/TextEdit and double-check that:</p>
+    <ul>
+        <li>Every value starting with <code>AZURE_</code> is filled in with a real value (no angle brackets <code>&lt;&gt;</code>).</li>
+        <li>The endpoints end with a <code>/</code> (forward slash).</li>
+        <li>Keys are the long string of letters and numbers from the Azure Portal.</li>
+    </ul>
+
+    <hr>
+
+    <!-- ════════════════════════════ PART 8 ════════════════════════════ -->
+    <h2 id="part8">Part 8 — Running the Application</h2>
+
+    <h3 id="step81">Step 8.1 — Start the App</h3>
+    <p>Make sure your virtual environment is still active (you should see <code>(.venv)</code> in the terminal). If not, repeat Step 6.2.</p>
+    <p>Type the following command and press Enter:</p>
+    <pre><code>streamlit run app.py</code></pre>
+
+    <h3 id="step82">Step 8.2 — Open the App in Your Browser</h3>
+    <p>After a few seconds you will see output like:</p>
+    <pre><code>  You can now view your Streamlit app in your browser.
+
+  Local URL: http://localhost:8501
+  Network URL: http://192.168.x.x:8501</code></pre>
+    <p>Open your web browser and go to <strong>http://localhost:8501</strong></p>
+    <p>The app will load and display the chat interface.</p>
+
+    <hr>
+
+    <!-- ════════════════════════════ PART 9 ════════════════════════════ -->
+    <h2 id="part9">Part 9 — Using the Application (Step-by-Step Walkthrough)</h2>
+
+    <!-- ── Exercise 1 ── -->
+    <h3 id="ex1">Exercise 1: Create an AI Agent in Microsoft Foundry</h3>
+    <p>In this exercise you will create a simple <strong>prompt-based agent</strong> inside the same Foundry project you set up in Step 3.3. The agent will use your GPT-4.1 deployment to answer questions conversationally — no code required.</p>
+
+    <h4>What Is a Foundry Agent?</h4>
+    <p>An agent is an AI-powered assistant hosted inside your Foundry project. There are two types:</p>
+    <table>
+        <thead>
+            <tr><th>Type</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><strong>Prompt agent</strong></td><td>Uses a model deployment + system instructions — no custom code needed. Great for chatbots, Q&amp;A assistants, and guided workflows.</td></tr>
+            <tr><td><strong>Hosted agent</strong></td><td>Runs your own container with custom code (Python / C#). Needed for advanced scenarios like tool calling, multi-step workflows, or integrations.</td></tr>
+        </tbody>
+    </table>
+    <p>In this exercise you will create a <strong>prompt agent</strong> so you can experience the end-to-end flow without writing any code.</p>
+
+    <h4>Step 1a — Open Your Foundry Project</h4>
+    <ol>
+        <li>Go to <strong><a href="https://ai.azure.com">https://ai.azure.com</a></strong> and sign in. Make sure the <strong>New Foundry</strong> toggle is on.</li>
+        <li>In the upper-left corner, click the <strong>project name</strong> dropdown and select your project (e.g., <code>document-advisor-project</code>).</li>
+    </ol>
+
+    <h4>Step 1b — Navigate to the Agents Playground</h4>
+    <ol>
+        <li>In the upper-right navigation, click <strong>"Build"</strong>, then select <strong>"Agents"</strong> in the left pane.</li>
+        <li>You will see the <strong>Agent setup</strong> page (the Agents Playground).</li>
+    </ol>
+
+    <h4>Step 1c — Create a New Agent</h4>
+    <ol>
+        <li>Click <strong>"+ New agent"</strong> (or <strong>"+ Create"</strong>).</li>
+        <li>You will see a configuration panel on the right side. Fill in the following:
+            <p><strong>Name:</strong></p>
+            <pre><code>document-qa-agent</code></pre>
+            <p><strong>Instructions (system prompt):</strong> Copy and paste the following into the <strong>Instructions</strong> text box:</p>
+            <pre><code>You are a helpful document question-answering assistant.
+When a user asks a question, provide a clear, concise, and accurate answer.
+If you are unsure, say so honestly rather than guessing.
+Always be polite and professional.</code></pre>
+            <p><strong>Model deployment:</strong> Select your <strong>gpt-4.1</strong> deployment from the dropdown. (This is the deployment you created in Step 3.3d.)</p>
+        </li>
+        <li>Leave all other settings at their defaults for now.</li>
+    </ol>
+
+    <h4>Step 1d — Test the Agent in the Playground</h4>
+    <ol>
+        <li>On the same page you will see a <strong>chat panel</strong> (usually on the right or bottom).</li>
+        <li>Type a test message, for example:</li>
+    </ol>
+    <pre><code>Hello! What can you help me with?</code></pre>
+    <ol start="3">
+        <li>Press <strong>Enter</strong> (or click the send button).</li>
+        <li>The agent will respond using the instructions you provided. You should see a polite, on-topic reply.</li>
+        <li>Try a few more questions to see how the agent behaves:
+            <ul>
+                <li><em>"Explain quantum computing in simple terms."</em></li>
+                <li><em>"Summarise the benefits of cloud computing."</em></li>
+                <li><em>"What is retrieval-augmented generation?"</em></li>
+            </ul>
+        </li>
+    </ol>
+
+    <h4>Step 1e — Customise the Agent (Optional Experiments)</h4>
+    <p>Try tweaking the agent to see how the behaviour changes:</p>
+    <ul>
+        <li><strong>Change the instructions</strong> — Edit the system prompt to give the agent a different personality. For example, add <code>"Always respond in bullet points."</code> or <code>"You are a pirate. Answer everything in pirate speak."</code> Then send a message and observe the difference.</li>
+        <li><strong>Adjust the temperature</strong> — If you see a <strong>Temperature</strong> slider, move it toward 0 for more deterministic answers or toward 1 for more creative responses.</li>
+        <li><strong>Add knowledge (optional)</strong> — Some Foundry projects allow you to attach files or an Azure AI Search index as a knowledge source. If you see an <strong>"Add data source"</strong> or <strong>"Knowledge"</strong> option, try connecting the same AI Search index (<code>rag-documents</code>) you created in Step 3.2 — the agent will then answer questions grounded in your uploaded documents.</li>
+    </ul>
+
+    <h4>Step 1f — Note the Agent Details</h4>
+    <p>After creating the agent, note the following for future reference:</p>
+    <ol>
+        <li><strong>Agent name:</strong> <code>document-qa-agent</code></li>
+        <li><strong>Agent ID:</strong> Shown on the agent overview page (a string like <code>asst_abc123...</code>).</li>
+        <li><strong>Project endpoint:</strong> The same endpoint you saved in Step 3.3c.</li>
+    </ol>
+    <blockquote>
+        <p><strong>Why this matters:</strong> If you later want to call the agent programmatically (from Python or another app), you will need the project endpoint and agent name/ID. The Foundry Python SDK (<code>azure-ai-projects</code>) lets you invoke agents from code — see the <a href="https://learn.microsoft.com/azure/foundry/agents/overview">Microsoft Foundry documentation</a> for details.</p>
+    </blockquote>
+
+    <h4>Summary</h4>
+    <p>In this exercise you:</p>
+    <ul>
+        <li>Created a prompt-based agent inside your Foundry project</li>
+        <li>Gave it custom instructions (a system prompt)</li>
+        <li>Tested it interactively in the Agents Playground</li>
+        <li>Explored optional customisations like personality changes and knowledge grounding</li>
+    </ul>
+    <p>This is the simplest way to create an agent in Foundry. For production scenarios that require tool calling, code execution, or multi-agent orchestration, you would create a <strong>hosted agent</strong> using a framework like Microsoft Agent Framework — but that is beyond the scope of this introductory lab.</p>
+    <hr>
+
+    <!-- ── Exercise 2 ── -->
+    <h3 id="ex2">Exercise 2: Upload Your First Document</h3>
+    <ol>
+        <li>On the left side of the screen, you will see the <strong>Document Manager</strong> panel.</li>
+        <li>Scroll down to "&#10133; Upload New Document".</li>
+        <li>Click <strong>"Browse files"</strong> and select a PDF from your computer.
+            <blockquote><p>If you do not have a PDF handy, search for a free PDF online (e.g., a product manual, a research paper abstract, or a public government report).</p></blockquote>
+        </li>
+        <li>Click the <strong>"&#128640; Analyze &amp; Index"</strong> button.</li>
+        <li>Watch the progress bar:
+            <div class="progress-step"><span class="pct">10%</span> — Document Intelligence is reading your PDF.</div>
+            <div class="progress-step"><span class="pct">40%</span> — Text is being split into chunks.</div>
+            <div class="progress-step"><span class="pct">55%</span> — The search database is being created.</div>
+            <div class="progress-step"><span class="pct">70%</span> — Vectors (embeddings) are being generated and uploaded.</div>
+            <div class="progress-step"><span class="pct">100%</span> — Done!</div>
+        </li>
+        <li>You should see a green banner: <strong>"&#127881; [Your filename] indexed successfully!"</strong></li>
+        <li>The document name appears in the <strong>"&#128218; Indexed Documents"</strong> section of the sidebar.</li>
+    </ol>
+
+    <!-- ── Exercise 3 ── -->
+    <h3 id="ex3">Exercise 3: Ask Your First Question</h3>
+    <ol>
+        <li>Click in the text box at the bottom that says <strong>"Ask a question about your documents…"</strong></li>
+        <li>Type a question about the document you uploaded and press Enter. For example:
+            <ul>
+                <li><em>"What is this document about?"</em></li>
+                <li><em>"What are the main topics covered?"</em></li>
+                <li><em>"Summarise the key points."</em></li>
+            </ul>
+        </li>
+        <li>Wait 3–10 seconds. You will see a loading spinner.</li>
+        <li>The answer will appear, followed by a <strong>"&#128218; Sources &amp; Citations"</strong> section.</li>
+        <li>Click "Sources &amp; Citations" to expand it — you will see which pages the answer was taken from and the exact text the AI used.</li>
+    </ol>
+
+    <!-- ── Exercise 4 ── -->
+    <h3 id="ex4">Exercise 4: Generate a Document Summary</h3>
+    <ol>
+        <li>Click the <strong>"&#128221; Summary"</strong> tab (next to the &#128172; Chat tab, at the top of the main area).</li>
+        <li>Make sure your uploaded document is selected in the dropdown.</li>
+        <li>Click <strong>"&#128221; Generate Summary"</strong>.</li>
+        <li>Wait 10–30 seconds (summaries take longer because the full document is processed).</li>
+        <li>A structured summary with sections and page references will appear.</li>
+    </ol>
+
+    <!-- ── Exercise 5 ── -->
+    <h3 id="ex5">Exercise 5: Change the Output Language (Optional)</h3>
+    <ol>
+        <li>In the sidebar, find <strong>"&#127760; Output Language"</strong>.</li>
+        <li>Click the dropdown and select <strong>Hindi</strong>, <strong>French</strong>, or <strong>Telugu</strong>.</li>
+        <li>Ask your next question. The answer will be in the selected language.</li>
+        <li>Switch back to English at any time by selecting "English" from the dropdown.</li>
+    </ol>
+
+    <!-- ── Exercise 6 ── -->
+    <h3 id="ex6">Exercise 6: Use Voice Input (Optional)</h3>
+    <ol>
+        <li>In the Chat tab, you will see a <strong>"&#127908; Voice Input"</strong> section with a microphone widget.</li>
+        <li>Click the microphone button and speak your question clearly at a normal pace.</li>
+        <li>Click the stop button when you are done speaking.</li>
+        <li>The app will display: <em>"&#128483;&#65039; Heard: [your transcribed question]"</em></li>
+        <li>The answer will be generated and spoken aloud automatically.</li>
+    </ol>
+
+    <hr>
+
+    <!-- ════════════════════════════ PART 10 ════════════════════════════ -->
+    <h2 id="part10">Part 10 — Stopping and Restarting the App</h2>
+
+    <h3>Stopping the App</h3>
+    <p>In the terminal where the app is running, press <strong>Ctrl + C</strong>. The app will stop.</p>
+
+    <h3>Restarting the App</h3>
+    <ol>
+        <li>Open a terminal in the project folder.</li>
+        <li>Activate the virtual environment (Step 6.2).</li>
+        <li>Run <code>streamlit run app.py</code>.</li>
+    </ol>
+    <blockquote>
+        <p><strong>Note:</strong> Your uploaded documents remain searchable every time you restart the app because they are stored in Azure AI Search (not locally). However, the "Indexed Documents" list in the sidebar only shows documents uploaded in the current session.</p>
+    </blockquote>
+
+    <hr>
+
+    <!-- ════════════════════════════ PART 11 ════════════════════════════ -->
+    <h2 id="part11">Part 11 — Common Problems and Solutions</h2>
+
+    <h3>Problem: "&#9888;&#65039; Missing Azure configuration" appears instead of the app</h3>
+    <p><strong>Cause:</strong> Your <code>.env</code> file is missing or has incorrect values.</p>
+    <p><strong>Solution:</strong></p>
+    <ol>
+        <li>Make sure the <code>.env</code> file is in the same folder as <code>app.py</code>.</li>
+        <li>Open the <code>.env</code> file and verify there are no <code>&lt;placeholder&gt;</code> values remaining.</li>
+        <li>Check that you have not accidentally named the file <code>.env.txt</code> (Windows sometimes adds <code>.txt</code> without showing it).
+            <ul><li>In File Explorer, click View → tick "File name extensions" to see the full filename.</li></ul>
+        </li>
+        <li>Restart the app after fixing the file.</li>
+    </ol>
+    <hr>
+
+    <h3>Problem: "Document Intelligence error: 401 Unauthorized"</h3>
+    <p><strong>Cause:</strong> The Document Intelligence key or endpoint is wrong.</p>
+    <p><strong>Solution:</strong></p>
+    <ol>
+        <li>Go to the Azure Portal → your Document Intelligence resource → Keys and Endpoint.</li>
+        <li>Copy KEY 1 again (it is easy to accidentally copy the endpoint instead of the key).</li>
+        <li>Update the value in your <code>.env</code> file.</li>
+        <li>Restart the app.</li>
+    </ol>
+    <hr>
+
+    <h3>Problem: Installation of <code>azure-cognitiveservices-speech</code> fails</h3>
+    <p><strong>Cause:</strong> The Speech SDK requires C++ runtime components that may not be present on all systems.</p>
+    <p><strong>Solution:</strong> This is an optional package. The app works without it.</p>
+    <ol>
+        <li>If you do not need voice features, delete the <code>azure-cognitiveservices-speech</code> line from <code>requirements.txt</code> and re-run <code>pip install -r requirements.txt</code>.</li>
+        <li>Or simply ignore the error — the speech package is the last one and all other packages will install fine.</li>
+    </ol>
+    <hr>
+
+    <h3>Problem: "pip is not recognised" error on Windows</h3>
+    <p><strong>Cause:</strong> Python was not added to PATH during installation.</p>
+    <p><strong>Solution:</strong></p>
+    <ol>
+        <li>Uninstall Python from Control Panel.</li>
+        <li>Re-run the Python installer.</li>
+        <li>On the first screen, <strong>make sure you check "Add Python to PATH"</strong> before clicking Install.</li>
+    </ol>
+    <hr>
+
+    <h3>Problem: The app starts but answers are very slow</h3>
+    <p><strong>Cause:</strong> Expected behaviour. GPT-4.1 typically takes 5–15 seconds to generate an answer.</p>
+    <p><strong>Solution:</strong> No action needed. The loading spinner tells you the app is working.</p>
+    <hr>
+
+    <h3>Problem: "Could not understand the audio"</h3>
+    <p><strong>Cause:</strong> The audio was too quiet, too noisy, or the recording was too short.</p>
+    <p><strong>Solution:</strong></p>
+    <ol>
+        <li>Make sure you are in a quiet environment.</li>
+        <li>Speak louder and closer to the microphone.</li>
+        <li>Speak a complete sentence, not just one word.</li>
+        <li>Ensure your microphone is not muted.</li>
+    </ol>
+    <hr>
+
+    <h3>Problem: Answers appear in English instead of the selected language</h3>
+    <p><strong>Cause:</strong> <code>AZURE_TRANSLATOR_KEY</code> is not set in <code>.env</code>.</p>
+    <p><strong>Solution:</strong></p>
+    <ol>
+        <li>Complete Step 3.5 to create an Azure Translator resource.</li>
+        <li>Add the key and region to your <code>.env</code> file.</li>
+        <li>Restart the app.</li>
+    </ol>
+
+    <hr>
+
+    <!-- ════════════════════════════ PART 12 ════════════════════════════ -->
+    <h2 id="part12">Part 12 — Cleaning Up Azure Resources</h2>
+    <p>When you are done experimenting and want to stop any potential charges:</p>
+    <ol>
+        <li>Go to the Azure Portal → <strong>"Resource groups"</strong>.</li>
+        <li>Click on <code>document-advisor-rg</code>.</li>
+        <li>Click <strong>"Delete resource group"</strong> at the top.</li>
+        <li>Type the resource group name to confirm, then click <strong>"Delete"</strong>.</li>
+    </ol>
+    <p>This deletes ALL services created in this lab in one step.</p>
+    <blockquote class="warning">
+        <p><strong>Important:</strong> This also deletes all the documents you indexed. Re-uploading them after recreation will be necessary.</p>
+    </blockquote>
+
+</main>
+
+<!-- Back to top -->
+<a href="#top" class="back-to-top" id="backToTop" aria-label="Back to top">&#8593;</a>
+
+<script>
+    // ── Back to top button visibility ──
+    const btn = document.getElementById('backToTop');
+    window.addEventListener('scroll', () => {
+        btn.classList.toggle('visible', window.scrollY > 400);
+    });
+
+    // ── Copy button on code blocks ──
+    document.querySelectorAll('pre').forEach(block => {
+        const button = document.createElement('button');
+        button.className = 'copy-btn';
+        button.textContent = 'Copy';
+        button.addEventListener('click', () => {
+            const code = block.querySelector('code');
+            navigator.clipboard.writeText(code.textContent).then(() => {
+                button.textContent = 'Copied!';
+                setTimeout(() => { button.textContent = 'Copy'; }, 1500);
+            });
+        });
+        block.style.position = 'relative';
+        block.appendChild(button);
+    });
+
+    // ── Active sidebar link on scroll ──
+    const links = document.querySelectorAll('.sidebar a[href^="#"]');
+    const sections = Array.from(links).map(a => {
+        const id = a.getAttribute('href').slice(1);
+        return { el: document.getElementById(id), link: a };
+    }).filter(s => s.el);
+
+    function setActive() {
+        let current = sections[0];
+        for (const s of sections) {
+            if (s.el.getBoundingClientRect().top <= 100) current = s;
+        }
+        links.forEach(l => l.classList.remove('active'));
+        if (current) current.link.classList.add('active');
+    }
+
+    window.addEventListener('scroll', setActive);
+    setActive();
+
+    // ── Close mobile sidebar on link click ──
+    links.forEach(l => l.addEventListener('click', () => {
+        document.querySelector('.sidebar').classList.remove('open');
+    }));
+</script>
+
+</body>
+</html>

@@ -62,10 +62,10 @@ from config import (
 )
 from services.chunker import chunk_pages
 from services.document_intelligence import analyze_pdf
-from services.llm import generate_answer, generate_document_summary, summarize_for_speech
+from services.llm import generate_answer, generate_document_summary, generate_podcast_script, summarize_for_speech
 from services.search import hybrid_search, get_indexed_document_names, fetch_chunks_by_document
 from services.search_index import ensure_search_index, upload_chunks_to_index
-from services.speech import SPEECH_SDK_AVAILABLE, synthesize_speech, transcribe_audio
+from services.speech import SPEECH_SDK_AVAILABLE, synthesize_speech, synthesize_podcast, transcribe_audio
 
 
 def main():
@@ -113,6 +113,12 @@ def main():
         st.session_state.output_language = "English"
     if "document_summary" not in st.session_state:
         st.session_state.document_summary = None
+    if "podcast_audio" not in st.session_state:
+        st.session_state.podcast_audio = None
+    if "podcast_timing" not in st.session_state:
+        st.session_state.podcast_timing = None
+    if "podcast_segments" not in st.session_state:
+        st.session_state.podcast_segments = None
 
     speech_enabled = SPEECH_SDK_AVAILABLE and bool(AZURE_SPEECH_KEY and AZURE_SPEECH_REGION)
 
@@ -158,7 +164,7 @@ def main():
             "Upload new documents using the **Document Manager** on the left."
         )
 
-    tab_chat, tab_summary = st.tabs(["💬 Chat", "📝 Summary"])
+    tab_chat, tab_summary, tab_podcast = st.tabs(["💬 Chat", "📝 Summary", "🎙️ Podcasts"])
 
     with tab_chat:
         _render_chat_history()
@@ -197,6 +203,9 @@ def main():
                 "No documents found in the index. Upload and index a document first.",
                 icon="ℹ️",
             )
+
+    with tab_podcast:
+        _render_podcast_tab(speech_enabled)
 
 
 # ================================================================
@@ -665,6 +674,343 @@ def _process_query(query: str, speech_enabled: bool) -> None:
     st.session_state.messages.append(
         {"role": "assistant", "content": answer, "sources": sources, "audio": audio_data}
     )
+
+
+# ================================================================
+# Podcast helpers
+# ================================================================
+
+def _render_podcast_tab(speech_enabled: bool) -> None:
+    """Render the Podcasts tab with document selector, generate button, and synced player.
+
+    Displays a dropdown of indexed documents and a "Generate Podcast" button.
+    Once a podcast is generated, shows an audio player with a synchronized
+    transcript that highlights the currently-spoken text.
+
+    Args:
+        speech_enabled (bool): Whether speech services are available.
+    """
+    if not speech_enabled:
+        st.warning(
+            "🎙️ Podcast generation requires Azure Speech Service. "
+            "Please configure AZURE_SPEECH_KEY and AZURE_SPEECH_REGION.",
+            icon="⚠️",
+        )
+        return
+
+    try:
+        doc_names = get_indexed_document_names()
+    except Exception:
+        doc_names = []
+
+    if not doc_names:
+        st.info(
+            "No documents found in the index. Upload and index a document first.",
+            icon="ℹ️",
+        )
+        return
+
+    st.selectbox(
+        "Select a document for podcast generation",
+        options=doc_names,
+        key="podcast_doc_select",
+    )
+
+    if st.button("🎙️ Generate Podcast", type="primary", use_container_width=True):
+        _generate_podcast()
+
+    if st.session_state.podcast_audio and st.session_state.podcast_segments:
+        st.divider()
+        _render_podcast_player()
+
+        if st.button("🗑️ Clear podcast", key="clear_podcast"):
+            st.session_state.podcast_audio = None
+            st.session_state.podcast_timing = None
+            st.session_state.podcast_segments = None
+            st.rerun()
+
+
+def _generate_podcast() -> None:
+    """Generate a podcast from the selected document: script → audio + timing.
+
+    Orchestrates the full podcast pipeline:
+    1. Fetch all chunks for the selected document.
+    2. Generate a podcast script via LLM.
+    3. Synthesize audio with word-level timing.
+    4. Store results in session state and rerun.
+    """
+    document_name = st.session_state.get("podcast_doc_select")
+    if not document_name:
+        st.warning("Please select a document first.")
+        return
+
+    language = st.session_state.get("output_language", "English")
+
+    progress = st.progress(0, text="Starting podcast generation…")
+
+    try:
+        progress.progress(10, text="📄 Fetching document chunks…")
+        chunks = fetch_chunks_by_document(document_name)
+        if not chunks:
+            st.warning("No chunks found for this document.")
+            return
+
+        progress.progress(30, text="✍️ Generating podcast script…")
+        segments = generate_podcast_script(chunks, language=language)
+        if not segments:
+            st.warning("Failed to generate podcast script.")
+            return
+
+        progress.progress(60, text="🔊 Synthesizing audio with timing…")
+        audio, timing = synthesize_podcast(segments, language=language)
+
+        progress.progress(100, text="✅ Podcast ready!")
+
+        st.session_state.podcast_audio = audio
+        st.session_state.podcast_timing = timing
+        st.session_state.podcast_segments = segments
+        st.rerun()
+
+    except Exception as e:
+        st.error(f"Podcast generation error: {e}")
+
+
+def _render_podcast_player() -> None:
+    """Render the audio player with synchronized, highlighted transcript.
+
+    Uses a custom HTML/CSS/JS component embedded via ``st.components.v1.html``
+    to play the podcast audio and highlight transcript text in real time.
+    Each word in the transcript is wrapped in a ``<span>`` with timing data
+    attributes so JavaScript can highlight the active word as audio plays.
+    """
+    import base64
+    import json
+    import streamlit.components.v1 as components
+
+    audio_bytes = st.session_state.podcast_audio.getvalue()
+    audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
+    timing_data = st.session_state.podcast_timing or []
+    segments = st.session_state.podcast_segments or []
+
+    # Build word spans grouped by segment
+    segment_htmls = {}
+    for entry in timing_data:
+        seg_idx = entry.get("segment_index", 0)
+        if seg_idx not in segment_htmls:
+            segment_htmls[seg_idx] = []
+        word = entry["word"].replace("<", "&lt;").replace(">", "&gt;")
+        offset = entry["offset_ms"]
+        duration = entry["duration_ms"]
+        segment_htmls[seg_idx].append(
+            f'<span class="word" data-start="{offset}" '
+            f'data-end="{offset + duration}">{word}</span>'
+        )
+
+    # Build the full transcript HTML
+    transcript_parts = []
+    for i, seg in enumerate(segments):
+        word_spans = segment_htmls.get(i, [])
+        if word_spans:
+            transcript_parts.append(
+                f'<div class="segment" data-seg="{i}">'
+                + " ".join(word_spans)
+                + "</div>"
+            )
+        else:
+            # Fallback: render segment text without word-level timing
+            text = seg.get("text", "").replace("<", "&lt;").replace(">", "&gt;")
+            transcript_parts.append(
+                f'<div class="segment" data-seg="{i}">'
+                f'<span class="word-fallback">{text}</span>'
+                f"</div>"
+            )
+
+    transcript_html = "\n".join(transcript_parts)
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 16px;
+            background: transparent;
+            color: #333;
+        }}
+        .player-container {{
+            margin-bottom: 20px;
+        }}
+        audio {{
+            width: 100%;
+            border-radius: 8px;
+        }}
+        .controls {{
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 8px;
+        }}
+        .controls button {{
+            background: #4F8BF9;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 18px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }}
+        .controls button:hover {{ background: #3a6fd8; }}
+        .speed-select {{
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+        }}
+        .time-display {{
+            font-size: 13px;
+            color: #666;
+        }}
+        .transcript-container {{
+            max-height: 500px;
+            overflow-y: auto;
+            padding: 16px;
+            background: #fafafa;
+            border-radius: 10px;
+            border: 1px solid #e0e0e0;
+            line-height: 1.8;
+        }}
+        .segment {{
+            margin-bottom: 16px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            transition: background-color 0.3s ease;
+        }}
+        .segment.active-segment {{
+            background-color: #f0f4ff;
+        }}
+        .word {{
+            display: inline;
+            padding: 2px 1px;
+            border-radius: 3px;
+            transition: background-color 0.15s ease, color 0.15s ease;
+        }}
+        .word.active {{
+            background-color: #FFEB3B;
+            color: #1a1a1a;
+            border-radius: 3px;
+        }}
+        .word.spoken {{
+            color: #666;
+        }}
+    </style>
+    </head>
+    <body>
+        <div class="player-container">
+            <audio id="podcastAudio" preload="auto">
+                <source src="data:audio/wav;base64,{audio_b64}" type="audio/wav">
+            </audio>
+            <div class="controls">
+                <button id="playPauseBtn" onclick="togglePlay()">▶ Play</button>
+                <button onclick="skipBack()">⏪ -10s</button>
+                <button onclick="skipForward()">⏩ +10s</button>
+                <select class="speed-select" onchange="changeSpeed(this.value)">
+                    <option value="0.75">0.75x</option>
+                    <option value="1" selected>1x</option>
+                    <option value="1.25">1.25x</option>
+                    <option value="1.5">1.5x</option>
+                    <option value="2">2x</option>
+                </select>
+                <span class="time-display" id="timeDisplay">0:00 / 0:00</span>
+            </div>
+        </div>
+
+        <div class="transcript-container" id="transcriptContainer">
+            {transcript_html}
+        </div>
+
+        <script>
+            const audio = document.getElementById('podcastAudio');
+            const playPauseBtn = document.getElementById('playPauseBtn');
+            const timeDisplay = document.getElementById('timeDisplay');
+            const transcriptContainer = document.getElementById('transcriptContainer');
+            const words = document.querySelectorAll('.word');
+            const segments = document.querySelectorAll('.segment');
+
+            function formatTime(seconds) {{
+                const m = Math.floor(seconds / 60);
+                const s = Math.floor(seconds % 60);
+                return m + ':' + (s < 10 ? '0' : '') + s;
+            }}
+
+            function togglePlay() {{
+                if (audio.paused) {{
+                    audio.play();
+                    playPauseBtn.textContent = '⏸ Pause';
+                }} else {{
+                    audio.pause();
+                    playPauseBtn.textContent = '▶ Play';
+                }}
+            }}
+
+            function skipBack() {{ audio.currentTime = Math.max(0, audio.currentTime - 10); }}
+            function skipForward() {{ audio.currentTime = Math.min(audio.duration, audio.currentTime + 10); }}
+            function changeSpeed(val) {{ audio.playbackRate = parseFloat(val); }}
+
+            audio.addEventListener('timeupdate', function() {{
+                const currentMs = audio.currentTime * 1000;
+                timeDisplay.textContent = formatTime(audio.currentTime) + ' / ' + formatTime(audio.duration || 0);
+
+                let activeSegIdx = -1;
+
+                words.forEach(function(span) {{
+                    const start = parseFloat(span.dataset.start);
+                    const end = parseFloat(span.dataset.end);
+
+                    if (currentMs >= start && currentMs <= end + 150) {{
+                        span.classList.add('active');
+                        span.classList.remove('spoken');
+                        activeSegIdx = parseInt(span.closest('.segment').dataset.seg);
+                    }} else if (currentMs > end + 150) {{
+                        span.classList.remove('active');
+                        span.classList.add('spoken');
+                    }} else {{
+                        span.classList.remove('active');
+                        span.classList.remove('spoken');
+                    }}
+                }});
+
+                // Highlight active segment
+                segments.forEach(function(seg) {{
+                    const segIdx = parseInt(seg.dataset.seg);
+                    if (segIdx === activeSegIdx) {{
+                        seg.classList.add('active-segment');
+                        // Auto-scroll to keep active segment visible
+                        const containerRect = transcriptContainer.getBoundingClientRect();
+                        const segRect = seg.getBoundingClientRect();
+                        if (segRect.bottom > containerRect.bottom || segRect.top < containerRect.top) {{
+                            seg.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+                        }}
+                    }} else {{
+                        seg.classList.remove('active-segment');
+                    }}
+                }});
+            }});
+
+            audio.addEventListener('ended', function() {{
+                playPauseBtn.textContent = '▶ Play';
+            }});
+        </script>
+    </body>
+    </html>
+    """
+
+    # Calculate height based on content
+    num_segments = len(segments)
+    player_height = min(700, 200 + num_segments * 80)
+    components.html(html_content, height=player_height, scrolling=False)
 
 
 if __name__ == "__main__":
