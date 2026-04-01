@@ -643,15 +643,6 @@ Use this checklist to make sure you have completed every step:
 
 *End of Lab Manual*
 
-
-### Exercise 5: Use Voice Input (Optional, requires Speech credentials)
-
-1. In the Chat tab, you will see a **"🎤 Voice Input"** section with a microphone widget.
-2. Click the microphone button and speak your question clearly at a normal pace.
-3. Click the stop button when you are done speaking.
-4. The app will display: *"🗣️ Heard: [your transcribed question]"*
-5. The answer will be generated and spoken aloud automatically.
-
 ---
 
 ## Part 10 — Stopping and Restarting the App
