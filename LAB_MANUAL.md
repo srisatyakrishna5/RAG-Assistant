@@ -638,14 +638,161 @@ This is the simplest way to create an agent in Foundry.  For production scenario
 4. Wait 10–30 seconds (summaries take longer because the full document is processed).
 5. A structured summary with sections and page references will appear.
 
-### Exercise 5: Change the Output Language (Optional, requires Translator key)
+### Exercise 5: Generate the Podcast Feature Using GitHub Copilot
+
+In this exercise you will **use AI to write code**.  Instead of coding the podcast feature by hand, you will give GitHub Copilot a detailed prompt and let it generate the entire implementation for you.  You can use **either** the GitHub Copilot extension in VS Code **or** the GitHub Copilot CLI — both approaches are covered below.
+
+#### What You Will Build
+
+The podcast feature adds a **🎙️ Podcasts** tab to the application.  When a user selects an indexed document and clicks "Generate Podcast", the app:
+
+1. Fetches the document content from Azure AI Search.
+2. Sends it to Azure OpenAI, which writes a natural, conversational podcast script (multiple segments).
+3. Synthesises the script into WAV audio using Azure Speech SDK, capturing word-level timing data.
+4. Plays the audio in the browser with a synchronised transcript that highlights each word as it is spoken.
+
+The prompt you will use tells Copilot exactly what functions to create, which existing helpers to reuse, and how the UI should look — so you do not need to know the details yourself.
+
+#### Option A — Using the GitHub Copilot Extension in VS Code
+
+> **Prerequisite:** You need the **GitHub Copilot** and **GitHub Copilot Chat** extensions installed in VS Code, and an active GitHub Copilot subscription.
+
+##### Step 5a-1 — Open the Project in VS Code
+
+1. Open VS Code.
+2. Click **File → Open Folder** and select the `document-advisor` project folder.
+3. Make sure you can see the file explorer on the left with files like `app.py`, `config.py`, and the `services/` folder.
+
+##### Step 5a-2 — Open the Copilot Chat Panel
+
+1. Click the **GitHub Copilot Chat icon** in the left sidebar (it looks like a speech bubble with the Copilot logo).
+   - Alternatively, press **Ctrl+Shift+I** (Windows/Linux) or **Cmd+Shift+I** (macOS).
+2. The Copilot Chat panel will appear.
+
+##### Step 5a-3 — Select Agent Mode
+
+1. At the top of the Copilot Chat panel, look for the **mode selector** dropdown (it may say "Ask" or "Edit").
+2. Click it and select **"Agent"** mode.
+   > Agent mode allows Copilot to make changes across multiple files and run terminal commands — which is exactly what you need for this exercise.
+
+##### Step 5a-4 — Paste the Prompt
+
+1. Open the file **`docs/podcast-generation-prompt.md`** in the project.
+2. Find the large text block inside the code fence (between the ` ```text ` and ` ``` ` markers).
+3. **Select and copy** the entire prompt text (from "I want to add a Podcast feature…" to the very end).
+4. Go back to the Copilot Chat panel and **paste** the prompt into the chat input box.
+5. Press **Enter** to send it.
+
+##### Step 5a-5 — Review and Apply the Generated Code
+
+1. Copilot will generate code for **three files**:
+   - `services/llm.py` — a new `generate_podcast_script()` function
+   - `services/speech.py` — new `synthesize_podcast()` and `_assign_segments()` functions
+   - `app.py` — session state initialisation, the new Podcasts tab, and three helper functions
+2. For each file, Copilot will show a diff (what it wants to add or change).
+3. **Read through each diff briefly** to see what was generated.
+4. Click **"Accept"** (or **"Apply"**) for each change to save it to the file.
+
+> **Tip:** If Copilot generates everything in one block instead of per-file diffs, you can manually copy each section into the correct file.
+
+##### Step 5a-6 — Verify Imports
+
+Open `app.py` and check that these imports are present near the top:
+
+```python
+from services.llm import generate_podcast_script
+from services.speech import synthesize_podcast
+```
+
+If they are missing, add them to the existing import lines for those modules.
+
+---
+
+#### Option B — Using the GitHub Copilot CLI
+
+> **Prerequisite:** You need the **GitHub Copilot CLI** installed and authenticated.  See [GitHub Copilot in the CLI](https://docs.github.com/en/copilot/github-copilot-in-the-cli) for setup instructions.
+
+##### Step 5b-1 — Open a Terminal in the Project Folder
+
+1. Open your terminal (Command Prompt, PowerShell, or the VS Code integrated terminal).
+2. Navigate to the `document-advisor` project folder:
+   ```
+   cd path\to\document-advisor
+   ```
+
+##### Step 5b-2 — Copy the Prompt
+
+1. Open the file **`docs/podcast-generation-prompt.md`** in any text editor.
+2. Find the large text block inside the code fence.
+3. **Copy** the entire prompt text.
+
+##### Step 5b-3 — Start a Copilot CLI Chat Session
+
+1. In the terminal, type:
+   ```
+   ghcs
+   ```
+   This starts an interactive GitHub Copilot CLI chat session.
+
+2. **Paste the entire prompt** into the chat and press Enter.
+
+##### Step 5b-4 — Apply the Generated Code
+
+1. Copilot CLI will output the generated code for each file.
+2. **Copy each section** and paste it into the corresponding file:
+   - `generate_podcast_script()` → add to the bottom of `services/llm.py`
+   - `synthesize_podcast()` and `_assign_segments()` → add to the bottom of `services/speech.py`
+   - Session state, tab, and helper functions → add to the appropriate locations in `app.py`
+3. Make sure the imports are added to `app.py` (see Step 5a-6 above).
+
+---
+
+#### Step 5-Final — Test the Podcast Feature
+
+Regardless of whether you used Option A or Option B:
+
+1. Make sure your virtual environment is active (see Part 6).
+2. Run the app:
+   ```
+   streamlit run app.py
+   ```
+3. In the browser, click the **🎙️ Podcasts** tab (next to Chat and Summary).
+4. Select a document from the dropdown (you must have uploaded at least one document in Exercise 2).
+5. Click **"🎙️ Generate Podcast"**.
+6. Wait for the progress bar to complete (this takes 30–90 seconds depending on document size):
+   - 📄 Fetching document chunks…
+   - ✍️ Generating podcast script…
+   - 🔊 Synthesizing audio with timing…
+   - ✅ Podcast ready!
+7. The audio player will appear with a transcript below it.
+8. Click **▶ Play** and watch the words highlight in yellow as the audio plays.
+9. Try the controls:
+   - **⏪ -10s / ⏩ +10s** to skip backward or forward.
+   - **Speed selector** to listen at 0.75x, 1.25x, 1.5x, or 2x.
+   - The transcript auto-scrolls to follow playback.
+10. Click **"🗑️ Clear podcast"** when you are done to reset.
+
+#### What Just Happened?
+
+You used **GitHub Copilot** — an AI coding assistant — to generate a complete, working feature from a text description.  Copilot produced:
+
+| Component | File | What It Does |
+|-----------|------|-------------|
+| `generate_podcast_script()` | `services/llm.py` | Sends document content to Azure OpenAI and gets back a podcast script as structured JSON segments |
+| `synthesize_podcast()` | `services/speech.py` | Converts the script into WAV audio using Azure Speech SDK with word-level timing |
+| `_assign_segments()` | `services/speech.py` | Maps each timed word back to its podcast segment for transcript highlighting |
+| Podcast tab UI | `app.py` | A full Streamlit UI with document selector, progress bar, audio player, and synchronised transcript |
+
+This is a powerful example of how AI-assisted coding lets you build complex features quickly — even if you have never written Python before.
+
+### Exercise 6: Change the Output Language (Optional, requires Translator key)
 
 1. In the sidebar, find **"🌐 Output Language"**.
 2. Click the dropdown and select **Hindi**, **French**, or **Telugu**.
 3. Ask your next question.  The answer will be in the selected language.
 4. Switch back to English at any time by selecting "English" from the dropdown.
 
-### Exercise 6: Use Voice Input (Optional, requires Speech credentials)
+### Exercise 7: Use Voice Input (Optional, requires Speech credentials)
 
 1. In the Chat tab, you will see a **"🎤 Voice Input"** section with a microphone widget.
 2. Click the microphone button and speak your question clearly at a normal pace.
