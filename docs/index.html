@@ -563,7 +563,7 @@
     <!-- ── 3.3 Microsoft Foundry ── -->
     <h3 id="step33">Step 3.3 — Create a Microsoft Foundry Project and Deploy Models</h3>
 
-    <p>Instead of creating a standalone Azure OpenAI resource, you will use <strong>Microsoft Foundry</strong>. Foundry is the unified platform that brings together AI models, agents, and tools under a single Azure resource — it hosts your model deployments and provides a single project endpoint and API key for both GPT-4.1 and embeddings.</p>
+    <p>Foundry is the unified platform that brings together AI models, agents, and tools under a single Azure resource — it hosts your model deployments and provides a single project endpoint and API key for both GPT-4.1 and embeddings.</p>
     <p>At the heart of every generative AI app or agent, there is a language model — usually a large language model (LLM). Microsoft Foundry provides a large collection of models from Microsoft, OpenAI, and other providers that you can deploy and use in your AI apps and agents.</p>
 
     <blockquote>
@@ -607,23 +607,15 @@
     <!-- 3.3c -->
     <h4 id="step33c">Step 3.3c — Find Your Project Endpoint and Key</h4>
     <ol>
-        <li>On the project <strong>Home</strong> page, you will see your <strong>project endpoint</strong> and <strong>API key</strong> displayed.</li>
-        <li>The endpoint looks like <code>https://YOUR-RESOURCE-NAME.openai.azure.com/</code> or <code>https://YOUR-RESOURCE-NAME.services.ai.azure.com/</code>.</li>
+        <li>On the project <strong>Home</strong> page, you will see your <strong>project endpoint</strong>, <strong>OpenAI endpoint</strong> and <strong>API key</strong> displayed.</li>
+        <li>The endpoint looks like <code>https://YOUR-RESOURCE-NAME.openai.azure.com/</code></li>
         <li><strong>Copy and save in your text file:</strong>
-            <ul>
-                <li><strong>Project endpoint</strong> (the full URL shown on the Home page)</li>
+            <ul>                
+                <li><strong>OpenAI endpoint</strong> (the full URL shown on the Home page)</li>
                 <li><strong>API key</strong> (click the copy icon next to it)</li>
             </ul>
         </li>
-    </ol>
-    <blockquote>
-        <p><strong>Note:</strong> You do not need an API key if you use Microsoft Entra ID authentication, but for this lab we use the API key approach for simplicity. This endpoint and key work for both GPT-4.1 and the embedding model — you do not need separate credentials.</p>
-        <p><strong>Authentication options:</strong> Microsoft Foundry supports two authentication methods:</p>
-        <ul>
-            <li><strong>Key-based authentication:</strong> The client app presents a security key (simplest approach — used in this lab).</li>
-            <li><strong>Microsoft Entra ID authentication:</strong> The client app presents an authentication token based on an identity assigned to it or to the current user (recommended for production).</li>
-        </ul>
-    </blockquote>
+    </ol>    
 
     <!-- 3.3d -->
     <h4 id="step33d">Step 3.3d — Deploy the GPT-4.1 Model</h4>
@@ -692,46 +684,7 @@
             </ul>
         </li>
     </ol>
-
     <!-- 3.3h -->
-    <h4 id="step33h">Step 3.3h — View Client Code (Optional)</h4>
-    <p>The playground provides sample code that a client application can use to chat with the deployed model.</p>
-    <ol>
-        <li>In the model playground <strong>Chat</strong> pane, select the <strong>Code</strong> tab.</li>
-        <li>Choose the following code preferences:
-            <ul>
-                <li><strong>API:</strong> Responses API (the newer syntax offering greater flexibility for apps and agents)</li>
-                <li><strong>Language:</strong> Python</li>
-                <li><strong>SDK:</strong> OpenAI SDK</li>
-                <li><strong>Authentication:</strong> Key authentication</li>
-            </ul>
-        </li>
-        <li>The resulting sample should look similar to the following:</li>
-    </ol>
-
-    <pre><code>from openai import OpenAI
-
-endpoint = "https://your-project-resource.openai.azure.com/openai/v1/"
-deployment_name = "gpt-4.1"
-api_key = "&lt;your-api-key&gt;"
-
-client = OpenAI(
-    base_url=endpoint,
-    api_key=api_key
-)
-
-response = client.responses.create(
-    model=deployment_name,
-    input="What is the capital of France?",
-)
-
-print(f"answer: {response.output[0]}")</code></pre>
-
-    <p>The code connects to the resource endpoint for your Microsoft Foundry project, using its secret authentication key, and uses your deployed model to generate a response from an input prompt.</p>
-
-    <blockquote>
-        <p><strong>Note:</strong> The <strong>Completions</strong> API is the broadly used programmatic syntax. The <strong>Responses</strong> API is a newer syntax that offers greater flexibility for building apps that converse with both standalone models and agents. Both are supported. Our application (<code>app.py</code>) uses the Chat Completions API.</p>
-    </blockquote>
 
     <ol start="4">
         <li>Switch back to the <strong>Chat</strong> tab when you have finished reviewing the code.</li>
@@ -837,7 +790,7 @@ print(f"answer: {response.output[0]}")</code></pre>
 
     <h3 id="step51">Step 5.1 — Download the Code</h3>
     <p><strong>If you have Git installed:</strong></p>
-    <pre><code>git clone &lt;repository-url&gt;
+    <pre><code>git clone https://github.com/srisatyakrishna5/RAG-Assistant
 cd document-advisor</code></pre>
     <p><strong>If you do NOT have Git:</strong></p>
     <ol>
@@ -1306,3 +1259,4 @@ Always be polite and professional.</code></pre>
 
 </body>
 </html>
+
